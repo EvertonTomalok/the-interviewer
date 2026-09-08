@@ -18,6 +18,10 @@ def test_accepts_a_valid_upload() -> None:
     validate_upload(b"x" * 100, mime="audio/wav", settings=_settings(), duration_seconds=10.0)
 
 
+def test_accepts_mime_with_codec_params() -> None:
+    validate_upload(b"x" * 100, mime="audio/webm;codecs=opus", settings=_settings())
+
+
 def test_rejects_unsupported_mime() -> None:
     with pytest.raises(DomainError, match="mime"):
         validate_upload(b"x", mime="video/mp4", settings=_settings())

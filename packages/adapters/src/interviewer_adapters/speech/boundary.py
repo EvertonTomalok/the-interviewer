@@ -21,7 +21,8 @@ def validate_upload(
     duration_seconds: float | None = None,
 ) -> None:
     """Raise `DomainError` naming what was wrong; return nothing otherwise."""
-    if mime not in settings.upload_allowed_mime_types:
+    base_mime = mime.split(";", 1)[0].strip()
+    if base_mime not in settings.upload_allowed_mime_types:
         raise DomainError(
             f"unsupported upload mime {mime!r}; allowed: "
             f"{', '.join(settings.upload_allowed_mime_types)}"
