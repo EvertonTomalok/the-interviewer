@@ -564,18 +564,22 @@ name = "interviewer-api"
 version = "0.1.0"
 source = { editable = "apps/api" }
 dependencies = [
+    { name = "bcrypt" },
     { name = "fastapi" },
     { name = "interviewer-adapters" },
     { name = "interviewer-core" },
+    { name = "pyjwt" },
     { name = "python-multipart" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "bcrypt", specifier = ">=4.2" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "interviewer-adapters", editable = "packages/adapters" },
     { name = "interviewer-core", editable = "packages/core" },
+    { name = "pyjwt", specifier = ">=2.9" },
     { name = "python-multipart", specifier = ">=0.0.17" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
