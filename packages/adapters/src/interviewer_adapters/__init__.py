@@ -12,3 +12,5 @@ existing lines -- a merge conflict here resolves by keeping both sides.
 from __future__ import annotations
 
 __version__ = "0.1.0"
+
+from interviewer_adapters import llm  # noqa: E402, F401  -- registers LLM providers (T03)
