@@ -1,0 +1,23 @@
+[project]
+name = "interviewer-api"
+version = "0.1.0"
+description = "FastAPI entrypoint: routers, schemas, auth, composition root"
+requires-python = ">=3.12"
+dependencies = [
+    "interviewer-core",
+    "interviewer-adapters",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.17",
+]
+
+[tool.uv.sources]
+interviewer-core = { workspace = true }
+interviewer-adapters = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/interviewer_api"]

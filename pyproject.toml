@@ -1,0 +1,87 @@
+[project]
+name = "the-interviewer"
+version = "0.1.0"
+description = "Adaptive Voice Interviewer -- workspace root"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "respx>=0.21",
+    "httpx>=0.27",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/core", "packages/adapters", "apps/api", "apps/worker"]
+
+[tool.uv.sources]
+interviewer-core = { workspace = true }
+interviewer-adapters = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["tasks"]
+src = [
+    "packages/core/src",
+    "packages/adapters/src",
+    "apps/api/src",
+    "apps/worker/src",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM"]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["interviewer_core", "interviewer_adapters", "interviewer_api", "interviewer_worker"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+explicit_package_bases = true
+mypy_path = "packages/core/src:packages/adapters/src:apps/api/src:apps/worker/src"
+files = ["packages/core/src", "packages/adapters/src", "apps/api/src", "apps/worker/src"]
+
+[[tool.mypy.overrides]]
+module = "interviewer_adapters.*"
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+testpaths = [
+    "packages/core/tests",
+    "packages/adapters/tests",
+    "apps/api/tests",
+    "apps/worker/tests",
+]
+markers = [
+    "integration: needs real Postgres and Redis, excluded from the fast loop",
+]
+
+[tool.coverage.run]
+branch = true
+source = [
+    "packages/core/src",
+    "packages/adapters/src",
+    "apps/api/src",
+    "apps/worker/src",
+]
+relative_files = true
+
+[tool.coverage.report]
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "\\.\\.\\.",
+]

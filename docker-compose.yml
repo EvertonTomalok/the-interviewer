@@ -1,0 +1,89 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: interviewer
+      POSTGRES_PASSWORD: interviewer
+      POSTGRES_DB: interviewer
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U interviewer"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6380:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    profiles: ["app"]
+    build: .
+    command: uvicorn interviewer_api.main:app --host 0.0.0.0 --port 8000
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://interviewer:interviewer@postgres:5432/interviewer
+      REDIS_URL: redis://redis:6379/0
+      STORAGE__LOCAL_FS__ROOT: /var/blobs
+    ports:
+      - "8000:8000"
+    volumes:
+      - blobs:/var/blobs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    profiles: ["app"]
+    build: .
+    command: python -m interviewer_worker
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://interviewer:interviewer@postgres:5432/interviewer
+      REDIS_URL: redis://redis:6379/0
+      STORAGE__LOCAL_FS__ROOT: /var/blobs
+    volumes:
+      - blobs:/var/blobs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  minio:
+    profiles: ["storage"]
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: interviewer
+      MINIO_ROOT_PASSWORD: interviewer-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata: {}
+  redisdata: {}
+  blobs: {}
+  miniodata: {}
