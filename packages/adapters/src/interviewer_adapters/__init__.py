@@ -13,4 +13,6 @@ from __future__ import annotations
 
 __version__ = "0.1.0"
 
-from interviewer_adapters import llm  # noqa: E402, F401  -- registers LLM providers (T03)
+from interviewer_adapters import llm  # noqa: E402, F401, I001  -- registers LLM providers (T03)
+from interviewer_adapters import speech  # noqa: E402, F401, I001  -- registers speech providers (T04)
+from interviewer_adapters import storage  # noqa: E402, F401, I001  -- registers storage providers (T06)
