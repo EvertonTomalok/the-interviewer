@@ -57,7 +57,16 @@ imported lazily inside `_build` so nothing else in this package pays for it).
    slot); anything else fails the run at once, `run.error` names the step,
    and `redis_streams` additionally pushes the raw stream entry onto
    `:dlq`. Prevents an unclassified retry loop from hammering a
-   permanently-broken dependency.
+   permanently-broken dependency. **Any exception `step.execute()` raises
+   that is not a `PortError`** — a `DomainError` from a step's own logic, for
+   example — is caught by the same `_drive()` and treated as a permanent,
+   non-retryable failure too, never re-raised past the engine. Found live
+   (T10): before this branch existed, a non-`PortError` propagated out of
+   `_drive()` and killed the worker process outright — one bad step failed
+   every run after it, not just its own. Both `inline._drive()` and
+   `redis_streams._drive()` carry this branch; a new engine adapter must
+   too, or a single malformed provider response can take the whole worker
+   down.
 
 **Where to change what** — add a workflow step → a new `BaseStep` subclass in
 `turn_steps.py`/`evaluation_steps.py` (or a new file, for a third workflow),

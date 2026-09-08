@@ -13,13 +13,15 @@ view). They exist to demo the loop, not to be a product.
 **Public surface** — the three HTML files themselves; each is a single page
 with one inline `<script type="module">`, no shared JS module between them.
 
-**Depends on** — the API's HTTP contract only (built against the route
-shapes T09 confirmed — `/i/{slug}/claim`, `/jobs`, `/jobs/{area_id}/start`,
-`/session/turns`, `/session/runs/{id}`, `/session/artifacts/{id}`,
-`/session/finish`, `/auth/login`, `/admin/sessions`,
-`/admin/sessions/{id}` — not against T09's code), not any Python package in
-this repository. Nothing here imports `interviewer_core` or
-`interviewer_adapters`.
+**Depends on** — the API's HTTP contract only (`GET /i/{slug}`,
+`POST /i/{slug}/claim`, `GET /jobs`, `POST /jobs/{area_id}/start`,
+`POST /session/turns`, `GET /session/runs/{id}`,
+`GET /session/artifacts/{id}`, `POST /session/finish`, `POST /auth/login`,
+`GET /admin/sessions`, `GET /admin/sessions/{id}`,
+`GET /admin/artifacts/{id}`), not any Python package in this repository.
+Nothing here imports `interviewer_core` or `interviewer_adapters`. `main.py`
+serves these three files itself via a `StaticFiles` mount — there is no
+separate static server.
 
 **Invariants** — the camera toggle in `interview.html` is preview-only:
 `getUserMedia({video: true})` renders a local `<video>` element and nothing
@@ -45,17 +47,18 @@ issued token via `sessionStorage["pending_session"]`, read once and
 removed immediately (`pendingSessionFromJobsPage()`) — never `localStorage`,
 same rule as the passkey-flow token.
 
-**Traps** — built against the route shapes T09 (`wt-t09-api`, still
-unmerged as of this branch) described as stable, not against a live
-server — **not yet run against a real API**; field names on
-`GET /admin/sessions`' rows are read defensively (`field()` tries a couple
-of plausible key names) since the exact listing schema wasn't pinned down
-when this was written. Expect a short follow-up pass once T09 merges and
-this can actually be exercised in a browser (PRD §12.7's manual pass is
-still open). `<audio src="/session/artifacts/{id}">` cannot carry an
-`Authorization` header, so the interviewer-reply playback in
-`interview.html` fetches the blob itself and plays an object URL instead —
-`admin.html`'s recording playback uses a plain `<audio src>` and will need
-the same treatment if `/session/artifacts/{id}` turns out to require a
-bearer token for admin reads too (worth confirming against T09's actual
-auth scoping).
+**Traps** — verified live against a real API, worker, Postgres and Redis
+(`scripts/demo.py` end to end, plus a manual browser pass on both
+`interview.html` and `admin.html`) — the two gaps below were found that way
+and are fixed, not open. `<audio src="...">` cannot carry an `Authorization`
+header, so **every** authenticated recording playback fetches the blob
+itself and plays an object URL instead of a bare `<audio src>`:
+`interview.html` for the interviewer's reply audio, `admin.html`'s
+`loadAudio(artifactId)` for a session's recordings via `GET
+/admin/artifacts/{id}`. `GET /i/{slug}` is one path serving two
+representations by `Accept` header — the page's own `loadPreview()` fetch
+gets JSON, a browser navigating there gets `interview.html` itself; do not
+add a second URL for the preview, the server already content-negotiates
+this one. `field()` on `admin.html`'s session table still reads a couple of
+plausible key names defensively — cheap insurance, not a sign the schema is
+still unstable.

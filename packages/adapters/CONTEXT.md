@@ -31,5 +31,9 @@ tested in the shared crash-after-*k* contract suite.
 
 **Traps** — this package's `__init__.py` is append-only; reordering an
 existing registration import can silently change which provider a duplicate
-name resolves to first. Only `persistence/` is populated so far — LLM,
-speech, storage and workflow adapters land in later tasks.
+name resolves to first. All five subpackages are populated: `llm/`
+(`openrouter`, `openai_compat`, `fake`), `speech/` (STT `openai_compat`/
+`fake`; TTS `openai_compat`/`none`/`FakeTTS` test-only), `storage/`
+(`local_fs`, `InMemoryBlobStore`), `workflow/` (`redis`, `inline`), and
+`persistence/` (SQL + in-memory, reached by direct import, not the
+registry — see above).

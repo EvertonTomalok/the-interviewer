@@ -18,15 +18,24 @@ own `deps.py` from `interviewer_core.config` settings and
 
 **Invariants** — `POST /session/turns` stores the upload and enqueues a run;
 it never transcribes, composes or scores inside the request. Every route
-except `/auth/*`, `/i/{slug}/claim`, `/jobs`, `/jobs/{area_id}/start`,
-`/healthz` and `/readyz` requires a valid bearer token, checked by one
-dependency (`deps.require_admin` / `deps.require_candidate_session`), never
-by convention per-route. No candidate-token route ever serialises `score`,
-`verdict` or `rationale`. `POST /jobs/{area_id}/start` is a second,
-no-credential entry point into the same session/token world `POST
-/i/{slug}/claim` creates — it mints and self-claims a single-use, one-hour
-`InterviewInvite` server-side (`routers/jobs.py`) rather than reusing
-`claim()`'s code, so it never touches `session.py`.
+except `/auth/*`, `GET /i/{slug}`, `/i/{slug}/claim`, `/jobs`,
+`/jobs/{area_id}/start`, `/healthz` and `/readyz` requires a valid bearer
+token, checked by one dependency (`deps.require_admin` /
+`deps.require_candidate_session`), never by convention per-route. No
+candidate-token route ever serialises `score`, `verdict` or `rationale` —
+`GET /admin/sessions` and `GET /admin/sessions/{id}` are the only routes
+that read `InterviewReport`, and both are `deps.require_admin`-gated.
+`POST /jobs/{area_id}/start` is a second, no-credential entry point into the
+same session/token world `POST /i/{slug}/claim` creates — it mints and
+self-claims a single-use, one-hour `InterviewInvite` server-side
+(`routers/jobs.py`) rather than reusing `claim()`'s code, so it never
+touches `session.py`. `GET /i/{slug}` content-negotiates on the `Accept`
+header: a browser navigation (`text/html`) gets `interview.html` itself
+(`FileResponse`), the page's own `fetch()` gets a no-credential JSON preview
+(area, persona name, question count) — one path, two representations,
+because the PRD describes one shared link, not two. The `StaticFiles` mount
+in `main.py` is registered **last**, after every `include_router` call, so
+it can never shadow an API route above it.
 
 **Where to change what** — a new route → a router module under `routers/`
 plus a line in `main.py`'s `include_router` calls; a new port/repository the
@@ -45,9 +54,16 @@ untestable without real Postgres/Redis. Workflow steps hold a **direct
 reference** to whatever `LLMPort`/pipeline they were built with at
 composition time — overriding `deps.get_llm` after the engine is built does
 not reach them (see `apps/api/tests/conftest.py`'s `Graph(llm=...)`
-construction-time override). `InviteRepository`/`SessionRepository` (T05,
-frozen) have no `list()` — `GET /invites` and `GET /admin/sessions` (plural)
-are not implemented for that reason; `DELETE /invites/{id}` calls the port's
-`delete()`, which is a hard remove, not a `status="retired"` update — every
-externally observable behaviour (claim fails the same way, existing
-sessions untouched) is identical either way.
+construction-time override). `InviteRepository` (T05, frozen) still has no
+`list()` — `GET /invites` is not implemented for that reason.
+`SessionRepository.list_all()` was added additively after T05 froze (an
+extension, not an edit to the frozen methods) specifically so `GET
+/admin/sessions` could exist; it does one N+1-friendly read per row
+(persona → area → report) rather than a join, a deliberate PoC-scale choice
+— see the port's own docstring. `GET /admin/artifacts/{id}` mirrors `GET
+/session/artifacts/{id}` but is admin-scoped instead of
+session-token-scoped, so it can serve any session's recording, not just the
+caller's own. `DELETE /invites/{id}` calls the port's `delete()`, which is
+a hard remove, not a `status="retired"` update — every externally
+observable behaviour (claim fails the same way, existing sessions
+untouched) is identical either way.
