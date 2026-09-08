@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interview a role</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --border: color-mix(in srgb, currentColor 20%, transparent);
+      --muted: color-mix(in srgb, currentColor 55%, transparent);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 40rem;
+      margin: 3rem auto;
+      padding: 0 1rem 4rem;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+    p.muted { color: var(--muted); margin-top: 0; }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 0.6rem;
+      padding: 1.1rem 1.25rem;
+      margin: 1rem 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .card h2 { font-size: 1.05rem; margin: 0 0 0.25rem; }
+    .card p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+    .card .meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.35rem; }
+    button {
+      font: inherit;
+      padding: 0.55rem 1.1rem;
+      border-radius: 0.4rem;
+      border: 1px solid var(--border);
+      background: #2563eb;
+      color: #fff;
+      border-color: #2563eb;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .error {
+      border: 1px solid #dc2626;
+      color: #dc2626;
+      border-radius: 0.4rem;
+      padding: 0.6rem 0.8rem;
+      margin: 0.75rem 0;
+    }
+    .empty { color: var(--muted); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <h1>Practice interviews</h1>
+  <p class="muted">
+    Pick a role below. The interview starts right away -- no sign-up, no
+    passkey. It's voice-only: allow your microphone when your browser asks.
+  </p>
+
+  <div id="error" class="error" hidden></div>
+  <p id="empty" class="empty" hidden>No roles are open for interviews right now.</p>
+  <div id="jobs"></div>
+
+  <script type="module">
+    const errorBox = document.getElementById("error");
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.hidden = false;
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, options);
+      let body;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+      if (!response.ok || (body && body.success === false)) {
+        const message = (body && body.error) || `request to ${path} failed (${response.status})`;
+        throw new Error(message);
+      }
+      return body ? body.data : null;
+    }
+
+    function renderJobs(jobs) {
+      const list = document.getElementById("jobs");
+      list.innerHTML = "";
+      if (jobs.length === 0) {
+        document.getElementById("empty").hidden = false;
+        return;
+      }
+      for (const job of jobs) {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const info = document.createElement("div");
+        const title = document.createElement("h2");
+        title.textContent = job.title;
+        const desc = document.createElement("p");
+        desc.textContent = job.description || "";
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = `${job.question_total} questions`;
+        info.append(title, desc, meta);
+
+        const button = document.createElement("button");
+        button.textContent = "Start interview";
+        button.addEventListener("click", () => startJob(job, button));
+
+        card.append(info, button);
+        list.appendChild(card);
+      }
+    }
+
+    async function startJob(job, button) {
+      button.disabled = true;
+      errorBox.hidden = true;
+      try {
+        const data = await api(`/jobs/${encodeURIComponent(job.area_id)}/start`, {
+          method: "POST",
+        });
+        // Held only in this tab's session storage -- never localStorage, a
+        // shared laptop is the normal case here -- and read once by
+        // interview.html, which clears it immediately after.
+        sessionStorage.setItem(
+          "pending_session",
+          JSON.stringify({
+            access_token: data.access_token,
+            title: data.title,
+            greeting_text: data.greeting_text,
+            intake_prompt_text: data.intake_prompt_text,
+            question_total: data.question_total,
+          })
+        );
+        window.location.href = "interview.html";
+      } catch (err) {
+        showError(`Couldn't start that interview: ${err.message}`);
+        button.disabled = false;
+      }
+    }
+
+    (async () => {
+      try {
+        const data = await api("/jobs");
+        renderJobs(data.jobs);
+      } catch (err) {
+        showError(`Couldn't load the list of roles: ${err.message}`);
+      }
+    })();
+  </script>
+</body>
+</html>

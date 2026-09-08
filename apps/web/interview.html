@@ -77,10 +77,14 @@
       <input id="passkey-input" type="password" placeholder="Passkey" autocomplete="off" />
       <button id="passkey-submit" class="primary">Continue</button>
     </div>
+    <p id="browse-jobs-link" class="muted" hidden>
+      No invite link? <a href="jobs.html">Browse open roles</a> instead.
+    </p>
   </section>
 
   <section id="screen-interview" hidden>
     <div class="card">
+      <p class="muted" id="job-title"></p>
       <p id="greeting-text"></p>
       <p class="muted" id="question-count"></p>
     </div>
@@ -140,6 +144,25 @@
     const slug = slugFromLocation();
     let candidateToken = null;
     let questionTotal = null;
+
+    // A candidate arriving from jobs.html already has a token -- no passkey
+    // screen at all. Read-once: the entry is cleared immediately so a
+    // refresh or a second tab doesn't reuse a single-session token.
+    function pendingSessionFromJobsPage() {
+      let raw;
+      try {
+        raw = sessionStorage.getItem("pending_session");
+      } catch {
+        return null;
+      }
+      if (!raw) return null;
+      try {
+        sessionStorage.removeItem("pending_session");
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    }
     let sending = false;
     let takeBlob = null;
     let takeUrl = null;
@@ -185,14 +208,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ passkey }),
         });
-        candidateToken = data.access_token;
-        questionTotal = data.question_total;
-        document.getElementById("greeting-text").textContent = data.greeting_text;
-        document.getElementById("question-count").textContent =
-          questionTotal != null ? `${questionTotal} questions` : "";
-        document.getElementById("prompt-text").textContent = data.intake_prompt_text || "";
-        document.getElementById("screen-passkey").hidden = true;
-        document.getElementById("screen-interview").hidden = false;
+        enterInterview(data);
       } catch (err) {
         showError(
           err.message && err.message.toLowerCase().includes("passkey")
@@ -424,9 +440,25 @@
       showError("This session has expired -- the link has already been used up.");
     }
 
-    if (!slug) {
+    function enterInterview(data) {
+      candidateToken = data.access_token;
+      questionTotal = data.question_total;
+      document.getElementById("job-title").textContent = data.title || "";
+      document.getElementById("greeting-text").textContent = data.greeting_text;
+      document.getElementById("question-count").textContent =
+        questionTotal != null ? `${questionTotal} questions` : "";
+      document.getElementById("prompt-text").textContent = data.intake_prompt_text || "";
+      document.getElementById("screen-passkey").hidden = true;
+      document.getElementById("screen-interview").hidden = false;
+    }
+
+    const pending = pendingSessionFromJobsPage();
+    if (pending) {
+      enterInterview(pending);
+    } else if (!slug) {
       showError("No invite slug in the link.");
       document.getElementById("passkey-submit").disabled = true;
+      document.getElementById("browse-jobs-link").hidden = false;
     }
   </script>
 </body>
