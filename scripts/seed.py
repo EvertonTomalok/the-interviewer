@@ -3,10 +3,17 @@
 jobs, each one published area + persona, ready for `GET /jobs` the moment
 the API is up.
 
+The admin email/password come from `Settings` (`SEED_ADMIN_EMAIL` /
+`SEED_ADMIN_PASSWORD` in `.env`, per this package's own "no module reads
+`os.environ` directly" rule) -- set them there rather than editing this
+file, so a real credential never needs to touch a diff.
+
 Idempotent: re-run any time. An area whose slug already exists, or one
 that already has a published persona, is left alone and reported, not
 re-created -- so a partially-seeded database from an earlier failed run
-just picks up where it left off.
+just picks up where it left off. Re-running after only the *password*
+changed in `.env` does not update an already-seeded admin's password --
+delete that user first if you need to rotate it.
 """
 
 from __future__ import annotations
@@ -18,9 +25,6 @@ from typing import Any
 from interviewer_api import deps
 from interviewer_api.security import hash_secret
 from interviewer_core.domain.entities import Area, Persona, PersonaQuestion, User
-
-_ADMIN_EMAIL = "admin@example.com"
-_ADMIN_PASSWORD = "changeme123!"
 
 # `follow_up_depth=2` on two-plus questions per job plus `policy="adaptive"`
 # is what makes the interview actually branch on what the candidate said --
@@ -356,21 +360,24 @@ async def _seed_admin() -> None:
     users = deps.get_user_repo()
     clock = deps.get_clock()
     ids = deps.get_ids()
+    settings = deps.get_settings()
+    email = settings.seed_admin_email
+    password = settings.seed_admin_password
 
-    if await users.get_by_email(_ADMIN_EMAIL) is not None:
-        print(f"seed: admin {_ADMIN_EMAIL!r} already exists, skipping")
+    if await users.get_by_email(email) is not None:
+        print(f"seed: admin {email!r} already exists, skipping")
         return
 
     await users.add(
         User(
             id=ids.new_id(),
-            email=_ADMIN_EMAIL,
-            password_hash=hash_secret(_ADMIN_PASSWORD),
+            email=email,
+            password_hash=hash_secret(password),
             role="admin",
             created_at=clock.now(),
         )
     )
-    print(f"seed: admin user {_ADMIN_EMAIL!r} / {_ADMIN_PASSWORD!r} -- shown once, not stored")
+    print(f"seed: admin user {email!r} / {password!r} -- shown once, not stored")
 
 
 async def _seed_job(job: dict[str, Any]) -> None:

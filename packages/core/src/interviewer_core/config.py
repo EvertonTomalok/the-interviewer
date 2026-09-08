@@ -76,6 +76,10 @@ class Settings(BaseSettings):
     passkey_max_attempts: int = 5
     passkey_lockout_minutes: int = 15
 
+    # --- Seed data (scripts/seed.py only) ------------------------------
+    seed_admin_email: str = "admin@example.com"
+    seed_admin_password: str = "changeme123!"
+
     # --- LLM ------------------------------------------------------------
     llm_provider: str = "fake"
     llm_model: str = "openai/gpt-4.1-mini"
