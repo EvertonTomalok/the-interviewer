@@ -4,75 +4,155 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Interview a role</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
       color-scheme: light dark;
-      --border: color-mix(in srgb, currentColor 20%, transparent);
-      --muted: color-mix(in srgb, currentColor 55%, transparent);
+      --bg: #edefee;
+      --surface: #f8f9f8;
+      --ink: #1b2027;
+      --muted: #5b6470;
+      --accent: #b9820f;
+      --accent-ink: #1b2027;
+      --line: rgba(27, 32, 39, 0.14);
+      --live: #c93f56;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15181d;
+        --surface: #1b1f26;
+        --ink: #e8e9ea;
+        --muted: #98a0aa;
+        --accent: #d9a233;
+        --accent-ink: #15181d;
+        --line: rgba(232, 233, 234, 0.14);
+        --live: #e5677c;
+      }
     }
     * { box-sizing: border-box; }
     body {
-      font-family: system-ui, sans-serif;
-      max-width: 40rem;
-      margin: 3rem auto;
-      padding: 0 1rem 4rem;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      max-width: 42rem;
+      margin: 0 auto;
+      padding: 4rem 1.5rem 5rem;
       line-height: 1.5;
     }
-    h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
-    p.muted { color: var(--muted); margin-top: 0; }
-    .card {
-      border: 1px solid var(--border);
-      border-radius: 0.6rem;
-      padding: 1.1rem 1.25rem;
-      margin: 1rem 0;
+    .masthead { margin-bottom: 2.5rem; }
+    .kicker {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.02em;
+      color: var(--accent);
+      margin: 0 0 0.6rem;
+    }
+    h1 {
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-weight: 600;
+      font-size: 2.1rem;
+      line-height: 1.15;
+      margin: 0 0 0.75rem;
+      letter-spacing: -0.01em;
+    }
+    .lede {
+      color: var(--muted);
+      font-size: 1rem;
+      max-width: 34rem;
+      margin: 0;
+    }
+    .roles { border-top: 1px solid var(--line); margin-top: 2.25rem; }
+    .role {
+      position: relative;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
-      flex-wrap: wrap;
+      gap: 1.5rem;
+      padding: 1.5rem 0 1.5rem 1.5rem;
+      border-bottom: 1px solid var(--line);
     }
-    .card h2 { font-size: 1.05rem; margin: 0 0 0.25rem; }
-    .card p { margin: 0; color: var(--muted); font-size: 0.9rem; }
-    .card .meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.35rem; }
-    button {
+    .role::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 0.5rem; bottom: 0.5rem;
+      width: 3px;
+      background: var(--accent);
+      opacity: 0;
+      transform: scaleY(0.4);
+      transform-origin: center;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .role:hover::before { opacity: 1; transform: scaleY(1); }
+    .role-info h2 {
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-weight: 600;
+      font-size: 1.2rem;
+      margin: 0 0 0.3rem;
+    }
+    .role-info p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.94rem;
+      max-width: 28rem;
+    }
+    .role-info .meta {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-top: 0.55rem;
+    }
+    button.start {
       font: inherit;
-      padding: 0.55rem 1.1rem;
-      border-radius: 0.4rem;
-      border: 1px solid var(--border);
-      background: #2563eb;
-      color: #fff;
-      border-color: #2563eb;
+      font-family: "IBM Plex Sans", sans-serif;
+      font-weight: 500;
+      font-size: 0.92rem;
+      padding: 0.65rem 1.3rem;
+      border-radius: 0.3rem;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: var(--accent-ink);
       cursor: pointer;
       flex-shrink: 0;
+      white-space: nowrap;
     }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.start:hover { filter: brightness(1.06); }
+    button.start:disabled { opacity: 0.5; cursor: not-allowed; }
     .error {
-      border: 1px solid #dc2626;
-      color: #dc2626;
+      border: 1px solid var(--live);
+      color: var(--live);
       border-radius: 0.4rem;
-      padding: 0.6rem 0.8rem;
-      margin: 0.75rem 0;
+      padding: 0.7rem 0.9rem;
+      margin: 0 0 1.5rem;
+      font-size: 0.92rem;
     }
-    .empty { color: var(--muted); }
+    .empty { color: var(--muted); padding: 2rem 0; }
     [hidden] { display: none !important; }
+    @media (max-width: 32rem) {
+      .role { flex-direction: column; align-items: flex-start; }
+      button.start { width: 100%; }
+    }
   </style>
 </head>
 <body>
-  <h1>Practice interviews</h1>
-  <p class="muted">
-    Pick a role below. The interview starts right away -- no sign-up, no
-    passkey. It's voice-only: allow your microphone when your browser asks.
-  </p>
+  <div class="masthead">
+    <p class="kicker">Practice interviews</p>
+    <h1>Pick a role, start talking</h1>
+    <p class="lede">
+      No sign-up, no passkey — the interview starts the moment you pick a
+      role. It's voice-only, so allow your microphone when the browser asks.
+    </p>
+  </div>
 
   <div id="error" class="error" hidden></div>
   <p id="empty" class="empty" hidden>No roles are open for interviews right now.</p>
-  <div id="jobs"></div>
+  <div id="jobs" class="roles"></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
   <script type="module">
-    const errorBox = document.getElementById("error");
+    const $error = $("#error");
     function showError(message) {
-      errorBox.textContent = message;
-      errorBox.hidden = false;
+      $error.text(message).prop("hidden", false);
     }
 
     async function api(path, options = {}) {
@@ -91,38 +171,35 @@
     }
 
     function renderJobs(jobs) {
-      const list = document.getElementById("jobs");
-      list.innerHTML = "";
+      const $list = $("#jobs").empty();
       if (jobs.length === 0) {
-        document.getElementById("empty").hidden = false;
+        $("#empty").prop("hidden", false);
         return;
       }
       for (const job of jobs) {
-        const card = document.createElement("div");
-        card.className = "card";
-
-        const info = document.createElement("div");
-        const title = document.createElement("h2");
-        title.textContent = job.title;
-        const desc = document.createElement("p");
-        desc.textContent = job.description || "";
-        const meta = document.createElement("div");
-        meta.className = "meta";
-        meta.textContent = `${job.question_total} questions`;
-        info.append(title, desc, meta);
-
-        const button = document.createElement("button");
-        button.textContent = "Start interview";
-        button.addEventListener("click", () => startJob(job, button));
-
-        card.append(info, button);
-        list.appendChild(card);
+        const $role = $(`
+          <div class="role">
+            <div class="role-info">
+              <h2></h2>
+              <p></p>
+              <div class="meta"></div>
+            </div>
+            <button class="start" type="button">Start interview</button>
+          </div>
+        `);
+        $role.find("h2").text(job.title);
+        $role.find("p").text(job.description || "");
+        $role.find(".meta").text(`${job.question_total} questions`);
+        $role.find("button").on("click", function () {
+          startJob(job, $(this));
+        });
+        $list.append($role);
       }
     }
 
-    async function startJob(job, button) {
-      button.disabled = true;
-      errorBox.hidden = true;
+    async function startJob(job, $button) {
+      $button.prop("disabled", true);
+      $error.prop("hidden", true);
       try {
         const data = await api(`/jobs/${encodeURIComponent(job.area_id)}/start`, {
           method: "POST",
@@ -143,7 +220,7 @@
         window.location.href = "interview.html";
       } catch (err) {
         showError(`Couldn't start that interview: ${err.message}`);
-        button.disabled = false;
+        $button.prop("disabled", false);
       }
     }
 

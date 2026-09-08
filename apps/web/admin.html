@@ -4,61 +4,139 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Admin</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
       color-scheme: light dark;
-      --border: color-mix(in srgb, currentColor 20%, transparent);
-      --muted: color-mix(in srgb, currentColor 55%, transparent);
+      --bg: #edefee;
+      --surface: #f8f9f8;
+      --ink: #1b2027;
+      --muted: #5b6470;
+      --accent: #b9820f;
+      --accent-ink: #1b2027;
+      --line: rgba(27, 32, 39, 0.14);
+      --live: #c93f56;
+      --good: #3d7a52;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15181d;
+        --surface: #1b1f26;
+        --ink: #e8e9ea;
+        --muted: #98a0aa;
+        --accent: #d9a233;
+        --accent-ink: #15181d;
+        --line: rgba(232, 233, 234, 0.14);
+        --live: #e5677c;
+        --good: #6fbf8a;
+      }
     }
     * { box-sizing: border-box; }
     body {
-      font-family: system-ui, sans-serif;
-      max-width: 48rem;
-      margin: 3rem auto;
-      padding: 0 1rem 4rem;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      max-width: 52rem;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 5rem;
       line-height: 1.5;
     }
-    h1 { font-size: 1.25rem; }
+    h1.kicker {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.02em;
+      color: var(--accent);
+      margin: 0 0 1.5rem;
+      font-weight: 500;
+    }
     button {
       font: inherit;
-      padding: 0.4rem 0.9rem;
-      border-radius: 0.4rem;
-      border: 1px solid var(--border);
+      font-family: "IBM Plex Sans", sans-serif;
+      padding: 0.5rem 1rem;
+      border-radius: 0.3rem;
+      border: 1px solid var(--line);
       background: transparent;
+      color: var(--ink);
       cursor: pointer;
     }
-    button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+    button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 500; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     input[type="password"], input[type="email"] {
       font: inherit;
-      padding: 0.5rem;
-      border-radius: 0.4rem;
-      border: 1px solid var(--border);
+      padding: 0.6rem 0.7rem;
+      border-radius: 0.3rem;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
       width: 100%;
     }
-    .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 0.75rem 0; }
-    .card { border: 1px solid var(--border); border-radius: 0.6rem; padding: 1rem; margin: 1rem 0; }
-    .muted { color: var(--muted); font-size: 0.9rem; }
+    .row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin: 0.75rem 0; }
+    .panel { border: 1px solid var(--line); background: var(--surface); border-radius: 0.5rem; padding: 1.2rem 1.3rem; margin: 1.1rem 0; }
+    .muted { color: var(--muted); font-size: 0.875rem; }
     .error {
-      border: 1px solid #dc2626; color: #dc2626; border-radius: 0.4rem;
-      padding: 0.6rem 0.8rem; margin: 0.75rem 0;
+      border: 1px solid var(--live); color: var(--live); border-radius: 0.4rem;
+      padding: 0.7rem 0.9rem; margin: 0.9rem 0; font-size: 0.875rem;
     }
+    #screen-login h2 {
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-weight: 600;
+      font-size: 1.5rem;
+      margin: 0 0 1rem;
+    }
+
     table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); }
+    th {
+      text-align: left; padding: 0.55rem 0.6rem;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.75rem; font-weight: 500;
+      color: var(--muted);
+      border-bottom: 1px solid var(--line);
+    }
+    td { text-align: left; padding: 0.7rem 0.6rem; border-bottom: 1px solid var(--line); font-size: 0.875rem; }
+    td.candidate { font-family: "IBM Plex Serif", Georgia, serif; font-weight: 600; }
+    td.score { font-family: "IBM Plex Mono", monospace; text-align: right; }
     tr[data-id] { cursor: pointer; }
-    tr[data-id]:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
-    .score-row { display: flex; justify-content: space-between; gap: 1rem; margin: 0.5rem 0; }
-    .verdict { text-transform: capitalize; }
+    tr[data-id]:hover td { background: color-mix(in srgb, currentColor 5%, transparent); }
     .not-answered { color: var(--muted); font-style: italic; }
-    audio { width: 100%; margin-top: 0.25rem; }
+
+    .score-row {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 1rem; padding: 0.6rem 0; border-bottom: 1px solid var(--line);
+    }
+    .score-row:last-of-type { border-bottom: none; }
+    .score-row .ref { font-size: 0.875rem; }
+    .score-row .figure { font-family: "IBM Plex Mono", monospace; font-size: 0.875rem; }
+    .verdict-dot {
+      display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 50%;
+      background: var(--good); margin-right: 0.4rem;
+    }
+    .verdict-dot.not-answered { background: var(--muted); }
+
+    .turn-line { padding: 0 0 0 0.9rem; margin: 0 0 0.9rem; border-left: 2px solid var(--line); font-size: 0.875rem; }
+    .turn-line .kind { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.2rem; }
+    audio { width: 100%; margin-top: 0.35rem; }
+
+    #detail-title { font-family: "IBM Plex Serif", Georgia, serif; font-weight: 600; font-size: 1.5rem; margin: 0 0 1rem; }
+    h3 { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); font-weight: 500; margin: 1.5rem 0 0.5rem; }
+    .overall { font-family: "IBM Plex Serif", Georgia, serif; font-size: 1.25rem; font-weight: 600; margin: 0 0 0.3rem; }
+
     [hidden] { display: none !important; }
+    @media (max-width: 40rem) {
+      table, thead, tbody, th, td, tr { display: block; }
+      thead { display: none; }
+      tr[data-id] { border-bottom: 1px solid var(--line); padding: 0.6rem 0; }
+      td { border: none; padding: 0.15rem 0; }
+      td.score { text-align: left; }
+    }
   </style>
 </head>
 <body>
-  <h1>Admin</h1>
+  <h1 class="kicker">Admin</h1>
   <div id="error" class="error" hidden></div>
 
-  <section id="screen-login" class="card">
+  <section id="screen-login" class="panel">
+    <h2>Log in</h2>
     <div class="row"><input id="email" type="email" placeholder="Email" autocomplete="username" /></div>
     <div class="row"><input id="password" type="password" placeholder="Password" autocomplete="current-password" /></div>
     <div class="row"><button id="login-btn" class="primary">Log in</button></div>
@@ -70,7 +148,7 @@
       <span style="flex:1"></span>
       <button id="logout-btn">Log out</button>
     </div>
-    <div id="list-card" class="card">
+    <div id="list-card" class="panel">
       <table>
         <thead>
           <tr><th>Candidate</th><th>Area</th><th>Persona v</th><th>Phase</th><th>Score</th><th>Date</th></tr>
@@ -80,7 +158,7 @@
       <p id="list-empty" class="muted" hidden>No sessions yet.</p>
     </div>
 
-    <div id="detail-card" class="card" hidden>
+    <div id="detail-card" class="panel" hidden>
       <h2 id="detail-title"></h2>
       <div id="transcript"></div>
       <h3>Report</h3>
@@ -88,15 +166,14 @@
     </div>
   </section>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
   <script type="module">
-    const errorBox = document.getElementById("error");
+    const $error = $("#error");
     function showError(message) {
-      errorBox.textContent = message;
-      errorBox.hidden = false;
+      $error.text(message).prop("hidden", false);
     }
     function clearError() {
-      errorBox.hidden = true;
-      errorBox.textContent = "";
+      $error.prop("hidden", true).text("");
     }
 
     let adminToken = null;
@@ -123,22 +200,22 @@
     }
 
     function showLogin() {
-      document.getElementById("screen-login").hidden = false;
-      document.getElementById("screen-list").hidden = true;
+      $("#screen-login").prop("hidden", false);
+      $("#screen-list").prop("hidden", true);
     }
 
-    document.getElementById("login-btn").addEventListener("click", login);
-    document.getElementById("password").addEventListener("keydown", (e) => {
+    $("#login-btn").on("click", login);
+    $("#password").on("keydown", (e) => {
       if (e.key === "Enter") login();
     });
 
     async function login() {
       clearError();
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
+      const email = $("#email").val();
+      const password = $("#password").val();
       if (!email || !password) return;
-      const btn = document.getElementById("login-btn");
-      btn.disabled = true;
+      const $btn = $("#login-btn");
+      $btn.prop("disabled", true);
       try {
         const data = await api("/auth/login", {
           method: "POST",
@@ -146,25 +223,25 @@
           body: JSON.stringify({ email, password }),
         });
         adminToken = data.access_token;
-        document.getElementById("screen-login").hidden = true;
-        document.getElementById("screen-list").hidden = false;
+        $("#screen-login").prop("hidden", true);
+        $("#screen-list").prop("hidden", false);
         await loadSessions();
       } catch (err) {
         showError("Login failed -- check the email and password.");
       } finally {
-        btn.disabled = false;
+        $btn.prop("disabled", false);
       }
     }
 
-    document.getElementById("logout-btn").addEventListener("click", () => {
+    $("#logout-btn").on("click", () => {
       adminToken = null;
       showLogin();
     });
 
-    document.getElementById("back-to-list").addEventListener("click", () => {
-      document.getElementById("detail-card").hidden = true;
-      document.getElementById("list-card").hidden = false;
-      document.getElementById("back-to-list").hidden = true;
+    $("#back-to-list").on("click", () => {
+      $("#detail-card").prop("hidden", true);
+      $("#list-card").prop("hidden", false);
+      $("#back-to-list").prop("hidden", true);
     });
 
     function field(row, ...names) {
@@ -183,50 +260,39 @@
         showError(`Couldn't load sessions: ${err.message}`);
         return;
       }
-      const body = document.getElementById("sessions-body");
-      body.innerHTML = "";
-      document.getElementById("list-empty").hidden = rows.length > 0;
+      const $body = $("#sessions-body").empty();
+      $("#list-empty").prop("hidden", rows.length > 0);
       for (const row of rows) {
         const id = field(row, "id", "session_id");
-        const tr = document.createElement("tr");
-        tr.dataset.id = id;
         const score = field(row, "overall_score");
-        tr.innerHTML = `
-          <td>${escapeHtml(field(row, "candidate_name") ?? "(no name)")}</td>
-          <td>${escapeHtml(field(row, "area", "area_name") ?? "")}</td>
-          <td>${escapeHtml(field(row, "persona_version") ?? "")}</td>
-          <td>${escapeHtml(field(row, "phase") ?? "")}</td>
-          <td>${score != null ? Number(score).toFixed(2) : "–"}</td>
-          <td>${escapeHtml(field(row, "date", "started_at") ?? "")}</td>
-        `;
-        tr.addEventListener("click", () => openSession(id));
-        body.appendChild(tr);
+        const $tr = $("<tr></tr>").attr("data-id", id);
+        $tr.append($("<td class='candidate'></td>").text(field(row, "candidate_name") ?? "(no name)"));
+        $tr.append($("<td></td>").text(field(row, "area", "area_name") ?? ""));
+        $tr.append($("<td></td>").text(field(row, "persona_version") ?? ""));
+        $tr.append($("<td></td>").text(field(row, "phase") ?? ""));
+        $tr.append($("<td class='score'></td>").text(score != null ? Number(score).toFixed(2) : "–"));
+        $tr.append($("<td></td>").text(field(row, "date", "started_at") ?? ""));
+        $tr.on("click", () => openSession(id));
+        $body.append($tr);
       }
-    }
-
-    function escapeHtml(value) {
-      return String(value).replace(/[&<>"']/g, (c) => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-      }[c]));
     }
 
     async function loadAudio(artifactId) {
       // /admin/artifacts/{id} needs the admin bearer token, which a plain
       // <audio src> can't carry -- fetch the bytes ourselves and play an
       // object URL instead, same as interview.html does for its own audio.
-      const audio = document.createElement("audio");
-      audio.controls = true;
+      const $audio = $("<audio controls></audio>");
       try {
         const response = await fetch(`/admin/artifacts/${artifactId}`, {
           headers: { Authorization: `Bearer ${adminToken}` },
         });
         if (response.ok) {
-          audio.src = URL.createObjectURL(await response.blob());
+          $audio.attr("src", URL.createObjectURL(await response.blob()));
         }
       } catch {
         // a recording that fails to load never blocks the rest of the transcript
       }
-      return audio;
+      return $audio;
     }
 
     async function openSession(id) {
@@ -238,53 +304,48 @@
         showError(`Couldn't load that session: ${err.message}`);
         return;
       }
-      document.getElementById("list-card").hidden = true;
-      document.getElementById("detail-card").hidden = false;
-      document.getElementById("back-to-list").hidden = false;
-      document.getElementById("detail-title").textContent =
-        field(data, "candidate_name") ?? "(no name)";
+      $("#list-card").prop("hidden", true);
+      $("#detail-card").prop("hidden", false);
+      $("#back-to-list").prop("hidden", false);
+      $("#detail-title").text(field(data, "candidate_name") ?? "(no name)");
 
-      const transcript = document.getElementById("transcript");
-      transcript.innerHTML = "";
+      const $transcript = $("#transcript").empty();
       for (const turn of data.turns || []) {
-        const p = document.createElement("p");
-        p.textContent = `[${turn.kind}] ${turn.transcript ?? ""}`;
-        transcript.appendChild(p);
+        const $line = $(`<div class="turn-line"><span class="kind"></span><span class="text"></span></div>`);
+        $line.find(".kind").text(turn.kind);
+        $line.find(".text").text(turn.transcript ?? "");
+        $transcript.append($line);
         if (turn.audio_artifact_id) {
-          transcript.appendChild(await loadAudio(turn.audio_artifact_id));
+          $transcript.append(await loadAudio(turn.audio_artifact_id));
         }
       }
 
-      const reportBox = document.getElementById("report");
-      reportBox.innerHTML = "";
+      const $reportBox = $("#report").empty();
       const report = data.report;
       if (!report) {
-        reportBox.innerHTML = '<p class="muted">No report yet.</p>';
+        $reportBox.html('<p class="muted">No report yet.</p>');
         return;
       }
-      const overall = document.createElement("p");
-      overall.innerHTML = `<strong>Overall: ${Number(report.overall_score).toFixed(2)}</strong>`;
-      reportBox.appendChild(overall);
+      $reportBox.append($(`<p class="overall"></p>`).text(`Overall ${Number(report.overall_score).toFixed(2)}`));
       if (report.summary) {
-        const summary = document.createElement("p");
-        summary.className = "muted";
-        summary.textContent = report.summary;
-        reportBox.appendChild(summary);
+        $reportBox.append($(`<p class="muted"></p>`).text(report.summary));
       }
       for (const score of report.scores || []) {
-        const row = document.createElement("div");
-        row.className = "score-row";
         const notAnswered = score.verdict === "not_answered";
-        row.innerHTML = `
-          <span>${escapeHtml(score.question_ref)}</span>
-          <span class="verdict ${notAnswered ? "not-answered" : ""}">${escapeHtml(score.verdict)}</span>
-          <span>${Number(score.score).toFixed(2)}</span>
-        `;
-        reportBox.appendChild(row);
-        const rationale = document.createElement("p");
-        rationale.className = "muted";
-        rationale.textContent = score.rationale || "";
-        reportBox.appendChild(rationale);
+        const $row = $(`
+          <div class="score-row">
+            <span class="ref"></span>
+            <span><span class="verdict-dot${notAnswered ? " not-answered" : ""}"></span><span class="verdict-text"></span></span>
+            <span class="figure"></span>
+          </div>
+        `);
+        $row.find(".ref").text(score.question_ref);
+        $row.find(".verdict-text").text(score.verdict);
+        $row.find(".figure").text(Number(score.score).toFixed(2));
+        $reportBox.append($row);
+        if (score.rationale) {
+          $reportBox.append($(`<p class="muted" style="margin: 0 0 0.6rem;"></p>`).text(score.rationale));
+        }
       }
     }
   </script>

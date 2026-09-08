@@ -4,74 +4,228 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Interview</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
       color-scheme: light dark;
-      --border: color-mix(in srgb, currentColor 20%, transparent);
-      --muted: color-mix(in srgb, currentColor 55%, transparent);
+      --bg: #edefee;
+      --surface: #f8f9f8;
+      --ink: #1b2027;
+      --muted: #5b6470;
+      --accent: #b9820f;
+      --accent-ink: #1b2027;
+      --line: rgba(27, 32, 39, 0.14);
+      --live: #c93f56;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15181d;
+        --surface: #1b1f26;
+        --ink: #e8e9ea;
+        --muted: #98a0aa;
+        --accent: #d9a233;
+        --accent-ink: #15181d;
+        --line: rgba(232, 233, 234, 0.14);
+        --live: #e5677c;
+      }
     }
     * { box-sizing: border-box; }
     body {
-      font-family: system-ui, sans-serif;
-      max-width: 36rem;
-      margin: 3rem auto;
-      padding: 0 1rem 4rem;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      max-width: 38rem;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 5rem;
       line-height: 1.5;
     }
-    h1 { font-size: 1.25rem; }
+    h1.kicker {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.02em;
+      color: var(--accent);
+      margin: 0 0 1.5rem;
+      font-weight: 500;
+    }
     button {
       font: inherit;
-      padding: 0.5rem 1rem;
-      border-radius: 0.4rem;
-      border: 1px solid var(--border);
+      font-family: "IBM Plex Sans", sans-serif;
+      padding: 0.55rem 1.1rem;
+      border-radius: 0.3rem;
+      border: 1px solid var(--line);
       background: transparent;
+      color: var(--ink);
       cursor: pointer;
     }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-    button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+    button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 500; }
+    button.ghost { background: transparent; color: var(--muted); border-color: var(--line); font-size: 0.875rem; padding: 0.4rem 0.8rem; }
     input[type="password"], input[type="text"] {
       font: inherit;
-      padding: 0.5rem;
-      border-radius: 0.4rem;
-      border: 1px solid var(--border);
+      padding: 0.6rem 0.7rem;
+      border-radius: 0.3rem;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
       width: 100%;
     }
-    .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 0.75rem 0; }
-    .card {
-      border: 1px solid var(--border);
-      border-radius: 0.6rem;
-      padding: 1rem;
-      margin: 1rem 0;
+    .row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin: 0.75rem 0; }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 0.5rem;
+      background: var(--surface);
+      padding: 1.2rem 1.3rem;
+      margin: 1.1rem 0;
     }
-    .muted { color: var(--muted); font-size: 0.9rem; }
+    .muted { color: var(--muted); font-size: 0.875rem; }
     .error {
-      border: 1px solid #dc2626;
-      color: #dc2626;
+      border: 1px solid var(--live);
+      color: var(--live);
       border-radius: 0.4rem;
-      padding: 0.6rem 0.8rem;
-      margin: 0.75rem 0;
+      padding: 0.7rem 0.9rem;
+      margin: 0.9rem 0;
+      font-size: 0.875rem;
     }
-    .thread .turn { margin: 0.75rem 0; }
-    .thread .candidate { text-align: right; }
-    .thread .interviewer { text-align: left; }
-    .thread .bubble {
-      display: inline-block;
-      max-width: 80%;
-      padding: 0.5rem 0.75rem;
-      border-radius: 0.6rem;
-      border: 1px solid var(--border);
+
+    /* -- passkey screen ------------------------------------------------- */
+    #screen-passkey h2 {
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-weight: 600;
+      font-size: 1.5rem;
+      margin: 0 0 0.4rem;
+    }
+
+    /* -- header: role + progress ----------------------------------------- */
+    .interview-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 1rem;
+      margin-bottom: 1.3rem;
+    }
+    .interview-head h2 {
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-weight: 600;
+      font-size: 1.5rem;
+      margin: 0;
+    }
+    .progress {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* -- camera --------------------------------------------------------- */
+    .camera-row { display: flex; align-items: center; gap: 0.9rem; }
+    video {
+      width: 6.5rem; height: 4.6rem; object-fit: cover;
+      border-radius: 0.4rem; border: 1px solid var(--line); display: block;
+    }
+
+    /* -- transcript, script-style ---------------------------------------- */
+    .thread { margin: 1.5rem 0; }
+    .turn { padding: 0 0 0 0.9rem; margin: 0 0 1.1rem; border-left: 2px solid var(--line); }
+    .turn.candidate { border-left-color: var(--accent); }
+    .turn.interviewer { border-left-color: var(--muted); }
+    .turn .speaker {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin: 0 0 0.25rem;
+    }
+    .turn.candidate .speaker { color: var(--accent); }
+    .turn p.line {
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-size: 1rem;
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    /* -- recorder: the hero ----------------------------------------------- */
+    .recorder {
+      text-align: center;
+      padding: 2rem 1.3rem 1.6rem;
+    }
+    .recorder .prompt {
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-size: 1.25rem;
       text-align: left;
+      margin: 0 0 1.6rem;
+      line-height: 1.4;
     }
-    video { width: 100%; max-width: 12rem; border-radius: 0.5rem; display: block; }
+    .mic-wrap { position: relative; width: 6.5rem; height: 6.5rem; margin: 0 auto 1rem; }
+    .mic-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      border: 2px solid var(--live); opacity: 0; transform: scale(0.85);
+    }
+    .recording .mic-ring {
+      animation: pulse-ring 1.6s ease-out infinite;
+    }
+    @keyframes pulse-ring {
+      0% { opacity: 0.55; transform: scale(0.85); }
+      100% { opacity: 0; transform: scale(1.35); }
+    }
+    button.mic-btn {
+      position: relative;
+      width: 6.5rem; height: 6.5rem;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-family: "IBM Plex Sans", sans-serif;
+      font-weight: 500;
+      font-size: 0.875rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      z-index: 1;
+    }
+    .recording button.mic-btn { background: var(--live); color: #fff; }
+    button.mic-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .waveform {
+      display: flex; align-items: flex-end; justify-content: center;
+      gap: 3px; height: 1.8rem; margin: 0.9rem 0 0.2rem;
+    }
+    .waveform span {
+      width: 3px; border-radius: 2px; background: var(--live);
+      height: 20%;
+    }
+    .recording .waveform span { animation: bar 0.9s ease-in-out infinite; }
+    .waveform span:nth-child(1) { animation-delay: 0s; }
+    .waveform span:nth-child(2) { animation-delay: 0.1s; }
+    .waveform span:nth-child(3) { animation-delay: 0.2s; }
+    .waveform span:nth-child(4) { animation-delay: 0.3s; }
+    .waveform span:nth-child(5) { animation-delay: 0.4s; }
+    .waveform span:nth-child(6) { animation-delay: 0.3s; }
+    .waveform span:nth-child(7) { animation-delay: 0.2s; }
+    .waveform span:nth-child(8) { animation-delay: 0.1s; }
+    .waveform span:nth-child(9) { animation-delay: 0s; }
+    @keyframes bar {
+      0%, 100% { height: 20%; }
+      50% { height: 90%; }
+    }
+    .status-text { font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; color: var(--muted); min-height: 1.2rem; margin-top: 0.7rem; }
+    .take-row { display: flex; align-items: center; justify-content: center; gap: 0.7rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    audio { max-width: 100%; }
+
+    #screen-done h2 {
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-weight: 600;
+      font-size: 1.5rem;
+    }
+
     [hidden] { display: none !important; }
   </style>
 </head>
 <body>
-  <h1>Interview</h1>
+  <h1 class="kicker">Interview</h1>
 
   <div id="error" class="error" hidden></div>
 
-  <section id="screen-passkey" class="card">
+  <section id="screen-passkey" class="panel">
+    <h2>Enter your passkey</h2>
     <p id="passkey-intro" class="muted">Enter the passkey from your invite link.</p>
     <div class="row">
       <input id="passkey-input" type="password" placeholder="Passkey" autocomplete="off" />
@@ -83,55 +237,64 @@
   </section>
 
   <section id="screen-interview" hidden>
-    <div class="card">
-      <p class="muted" id="job-title"></p>
-      <p id="greeting-text"></p>
-      <p class="muted" id="question-count"></p>
+    <div class="interview-head">
+      <h2 id="job-title"></h2>
+      <span class="progress" id="question-count"></span>
     </div>
 
-    <div class="card">
-      <div class="row">
-        <button id="camera-toggle">Turn camera on</button>
-        <span class="muted">Preview only -- no frame is read, uploaded or stored.</span>
+    <p id="greeting-text" class="muted" style="margin-top: -0.6rem;"></p>
+
+    <div class="panel">
+      <div class="camera-row">
+        <button id="camera-toggle" class="ghost">Turn camera on</button>
+        <span class="muted">Preview only — nothing is read, uploaded or stored.</span>
       </div>
       <video id="camera-preview" autoplay muted playsinline hidden></video>
     </div>
 
     <div id="thread" class="thread"></div>
 
-    <div id="recorder-card" class="card">
-      <p id="prompt-text" class="muted"></p>
-      <div class="row">
-        <button id="record-btn">Record answer</button>
+    <div id="recorder-card" class="panel recorder">
+      <p id="prompt-text" class="prompt"></p>
+
+      <div class="mic-wrap">
+        <div class="mic-ring"></div>
+        <button id="record-btn" class="mic-btn">Record</button>
+      </div>
+      <div class="waveform" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+
+      <div class="take-row">
         <button id="stop-btn" hidden>Stop</button>
         <audio id="playback" controls hidden></audio>
       </div>
-      <div class="row">
-        <button id="rerecord-btn" hidden>Re-record</button>
+      <div class="take-row">
+        <button id="rerecord-btn" class="ghost" hidden>Re-record</button>
         <button id="send-btn" class="primary" hidden>Send</button>
       </div>
-      <p id="status-text" class="muted"></p>
+      <p id="status-text" class="status-text"></p>
     </div>
 
-    <div id="closing-card" class="card" hidden>
-      <p id="closing-text"></p>
+    <div id="closing-card" class="panel" hidden>
+      <p id="closing-text" style="font-family: 'IBM Plex Serif', Georgia, serif; font-size: 1.25rem;"></p>
       <button id="finish-btn" class="primary">Finish</button>
     </div>
   </section>
 
-  <section id="screen-done" class="card" hidden>
-    <p>Sent for review. Thanks for your time.</p>
+  <section id="screen-done" class="panel" hidden>
+    <h2>Sent for review</h2>
+    <p class="muted">Thanks for your time — that's everything.</p>
   </section>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
   <script type="module">
-    const errorBox = document.getElementById("error");
+    const $error = $("#error");
     function showError(message) {
-      errorBox.textContent = message;
-      errorBox.hidden = false;
+      $error.text(message).prop("hidden", false);
     }
     function clearError() {
-      errorBox.hidden = true;
-      errorBox.textContent = "";
+      $error.prop("hidden", true).text("");
     }
 
     function slugFromLocation() {
@@ -192,16 +355,16 @@
 
     class SessionExpiredError extends Error {}
 
-    document.getElementById("passkey-submit").addEventListener("click", claim);
-    document.getElementById("passkey-input").addEventListener("keydown", (e) => {
+    $("#passkey-submit").on("click", claim);
+    $("#passkey-input").on("keydown", (e) => {
       if (e.key === "Enter") claim();
     });
 
     async function claim() {
       clearError();
-      const passkey = document.getElementById("passkey-input").value;
+      const passkey = $("#passkey-input").val();
       if (!passkey) return;
-      document.getElementById("passkey-submit").disabled = true;
+      $("#passkey-submit").prop("disabled", true);
       try {
         const data = await api(`/i/${encodeURIComponent(slug)}/claim`, {
           method: "POST",
@@ -216,28 +379,26 @@
             : "This link isn't valid right now."
         );
       } finally {
-        document.getElementById("passkey-submit").disabled = false;
+        $("#passkey-submit").prop("disabled", false);
       }
     }
 
     // -- camera preview: video only, never read, never sent -----------------
 
-    const cameraToggle = document.getElementById("camera-toggle");
-    const cameraPreview = document.getElementById("camera-preview");
-    cameraToggle.addEventListener("click", async () => {
+    const $cameraToggle = $("#camera-toggle");
+    const $cameraPreview = $("#camera-preview");
+    $cameraToggle.on("click", async () => {
       if (cameraStream) {
         cameraStream.getTracks().forEach((t) => t.stop());
         cameraStream = null;
-        cameraPreview.srcObject = null;
-        cameraPreview.hidden = true;
-        cameraToggle.textContent = "Turn camera on";
+        $cameraPreview.prop("srcObject", null).prop("hidden", true);
+        $cameraToggle.text("Turn camera on");
         return;
       }
       try {
         cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        cameraPreview.srcObject = cameraStream;
-        cameraPreview.hidden = false;
-        cameraToggle.textContent = "Turn camera off";
+        $cameraPreview.prop("srcObject", cameraStream).prop("hidden", false);
+        $cameraToggle.text("Turn camera off");
       } catch {
         showError("Couldn't access the camera -- you can still continue without it.");
       }
@@ -245,25 +406,25 @@
 
     // -- record / listen back / re-record / send -----------------------------
 
-    const recordBtn = document.getElementById("record-btn");
-    const stopBtn = document.getElementById("stop-btn");
-    const rerecordBtn = document.getElementById("rerecord-btn");
-    const sendBtn = document.getElementById("send-btn");
-    const playback = document.getElementById("playback");
-    const statusText = document.getElementById("status-text");
+    const $recordBtn = $("#record-btn");
+    const $stopBtn = $("#stop-btn");
+    const $rerecordBtn = $("#rerecord-btn");
+    const $sendBtn = $("#send-btn");
+    const $playback = $("#playback");
+    const $statusText = $("#status-text");
+    const $micWrap = $(".mic-wrap").parent(); // .recorder panel, drives .recording state
 
     function resetTake() {
       if (takeUrl) URL.revokeObjectURL(takeUrl);
       takeUrl = null;
       takeBlob = null;
-      playback.hidden = true;
-      playback.removeAttribute("src");
-      recordBtn.hidden = false;
-      rerecordBtn.hidden = true;
-      sendBtn.hidden = true;
+      $playback.prop("hidden", true).removeAttr("src");
+      $recordBtn.prop("hidden", false);
+      $rerecordBtn.prop("hidden", true);
+      $sendBtn.prop("hidden", true);
     }
 
-    recordBtn.addEventListener("click", async () => {
+    $recordBtn.on("click", async () => {
       clearError();
       let micStream;
       try {
@@ -279,67 +440,69 @@
       };
       mediaRecorder.onstop = () => {
         micStream.getTracks().forEach((t) => t.stop());
+        $micWrap.removeClass("recording");
         if (takeUrl) URL.revokeObjectURL(takeUrl);
         takeBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
         takeUrl = URL.createObjectURL(takeBlob);
-        playback.src = takeUrl;
-        playback.hidden = false;
-        recordBtn.hidden = true;
-        stopBtn.hidden = true;
-        rerecordBtn.hidden = false;
-        sendBtn.hidden = false;
+        $playback.attr("src", takeUrl).prop("hidden", false);
+        $recordBtn.prop("hidden", true);
+        $stopBtn.prop("hidden", true);
+        $rerecordBtn.prop("hidden", false);
+        $sendBtn.prop("hidden", false);
       };
       mediaRecorder.start();
-      recordBtn.hidden = true;
-      stopBtn.hidden = false;
+      $micWrap.addClass("recording");
+      $recordBtn.prop("hidden", true);
+      $stopBtn.prop("hidden", false);
     });
 
-    stopBtn.addEventListener("click", () => {
+    $stopBtn.on("click", () => {
       if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-      stopBtn.hidden = true;
+      $stopBtn.prop("hidden", true);
     });
 
-    rerecordBtn.addEventListener("click", () => {
+    $rerecordBtn.on("click", () => {
       resetTake();
     });
 
-    sendBtn.addEventListener("click", sendTake);
+    $sendBtn.on("click", sendTake);
 
     async function sendTake() {
       if (sending || !takeBlob) return;
       sending = true;
-      sendBtn.disabled = true;
+      $sendBtn.prop("disabled", true);
       clearError();
-      statusText.textContent = "Sending...";
+      $statusText.text("Sending...");
       try {
         const form = new FormData();
         const ext = (takeBlob.type.split("/")[1] || "webm").split(";")[0];
         form.append("file", takeBlob, `take.${ext}`);
         const result = await api("/session/turns", { method: "POST", body: form });
         resetTake();
-        recordBtn.hidden = true; // stays hidden until the poll resolves
-        statusText.textContent = "Processing...";
+        $recordBtn.prop("hidden", true); // stays hidden until the poll resolves
+        $statusText.text("Processing...");
         await pollTurn(result.run_id);
       } catch (err) {
         if (err instanceof SessionExpiredError) return handleExpired();
-        statusText.textContent = "";
+        $statusText.text("");
         showError(`That answer didn't go through: ${err.message}. You can try again.`);
-        recordBtn.hidden = false;
+        $recordBtn.prop("hidden", false);
       } finally {
         sending = false;
-        sendBtn.disabled = false;
+        $sendBtn.prop("disabled", false);
       }
     }
 
-    function appendTurn(role, text) {
-      const thread = document.getElementById("thread");
-      const div = document.createElement("div");
-      div.className = `turn ${role}`;
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
-      bubble.textContent = text;
-      div.appendChild(bubble);
-      thread.appendChild(div);
+    function appendTurn(role, speakerLabel, text) {
+      const $turn = $(`
+        <div class="turn ${role}">
+          <p class="speaker"></p>
+          <p class="line"></p>
+        </div>
+      `);
+      $turn.find(".speaker").text(speakerLabel);
+      $turn.find(".line").text(text);
+      $("#thread").append($turn);
     }
 
     async function pollTurn(runId) {
@@ -356,31 +519,29 @@
           throw new Error(state.error || "the turn failed");
         }
         if (state.status === "succeeded") {
-          statusText.textContent = "";
-          appendTurn("candidate", state.transcript || "(no transcript)");
+          $statusText.text("");
+          appendTurn("candidate", "You", state.transcript || "(no transcript)");
           if (state.phase === "closing") {
             showClosing(state);
             return;
           }
-          appendTurn("interviewer", state.question_text || "");
-          document.getElementById("prompt-text").textContent = state.question_text || "";
+          appendTurn("interviewer", "Interviewer", state.question_text || "");
+          $("#prompt-text").text(state.question_text || "");
           if (state.question_number != null) {
-            document.getElementById("question-count").textContent =
-              `${state.question_number} of ${state.question_total}`;
+            $("#question-count").text(`${state.question_number} / ${state.question_total}`);
           }
           if (state.audio_artifact_id) await playInterviewerAudio(state.audio_artifact_id);
-          recordBtn.hidden = false;
+          $recordBtn.prop("hidden", false);
           return;
         }
         await new Promise((r) => setTimeout(r, 1200));
       }
       showError("This is taking longer than expected. It's still running -- check back shortly.");
-      recordBtn.hidden = false;
+      $recordBtn.prop("hidden", false);
     }
 
     async function playInterviewerAudio(artifactId) {
-      const audio = new Audio(`/session/artifacts/${artifactId}`);
-      // best-effort: candidate token travels via the page's own fetch below,
+      // best-effort: candidate token travels via fetch below,
       // browsers can't attach Authorization to a plain <audio src> request.
       try {
         const response = await fetch(`/session/artifacts/${artifactId}`, {
@@ -397,18 +558,18 @@
     }
 
     function showClosing(state) {
-      document.getElementById("recorder-card").hidden = true;
-      document.getElementById("closing-card").hidden = false;
-      document.getElementById("closing-text").textContent = state.question_text || "";
+      $("#recorder-card").prop("hidden", true);
+      $("#closing-card").prop("hidden", false);
+      $("#closing-text").text(state.question_text || "");
     }
 
-    document.getElementById("finish-btn").addEventListener("click", finish);
+    $("#finish-btn").on("click", finish);
 
     async function finish() {
       if (sending) return;
       sending = true;
-      const btn = document.getElementById("finish-btn");
-      btn.disabled = true;
+      const $btn = $("#finish-btn");
+      $btn.prop("disabled", true);
       clearError();
       try {
         const result = await api("/session/finish", { method: "POST" });
@@ -422,45 +583,45 @@
         if (!state || state.status !== "succeeded") {
           throw new Error((state && state.error) || "finishing timed out");
         }
-        document.getElementById("screen-interview").hidden = true;
-        document.getElementById("screen-done").hidden = false;
+        $("#screen-interview").prop("hidden", true);
+        $("#screen-done").prop("hidden", false);
       } catch (err) {
         if (err instanceof SessionExpiredError) return handleExpired();
         showError(`Couldn't finish the session: ${err.message}`);
       } finally {
         sending = false;
-        btn.disabled = false;
+        $btn.prop("disabled", false);
       }
     }
 
     function handleExpired() {
       candidateToken = null;
-      document.getElementById("screen-interview").hidden = true;
-      document.getElementById("screen-passkey").hidden = false;
+      $("#screen-interview").prop("hidden", true);
+      $("#screen-passkey").prop("hidden", false);
       showError("This session has expired -- the link has already been used up.");
     }
 
     function enterInterview(data) {
       candidateToken = data.access_token;
       questionTotal = data.question_total;
-      document.getElementById("job-title").textContent = data.title || "";
-      document.getElementById("greeting-text").textContent = data.greeting_text;
-      document.getElementById("question-count").textContent =
-        questionTotal != null ? `${questionTotal} questions` : "";
-      document.getElementById("prompt-text").textContent = data.intake_prompt_text || "";
-      document.getElementById("screen-passkey").hidden = true;
-      document.getElementById("screen-interview").hidden = false;
+      $("#job-title").text(data.title || "");
+      $("#greeting-text").text(data.greeting_text);
+      $("#question-count").text(questionTotal != null ? `1 / ${questionTotal}` : "");
+      $("#prompt-text").text(data.intake_prompt_text || "");
+      $("#screen-passkey").prop("hidden", true);
+      $("#screen-interview").prop("hidden", false);
     }
 
     async function loadPreview() {
       try {
         const data = await api(`/i/${encodeURIComponent(slug)}`);
-        document.getElementById("passkey-intro").textContent =
+        $("#passkey-intro").text(
           `${data.persona_name}${data.area_name ? " -- " + data.area_name : ""} ` +
-          `(${data.question_total} questions). Enter the passkey from your invite link.`;
+          `(${data.question_total} questions). Enter the passkey from your invite link.`
+        );
       } catch {
         showError("This link isn't valid right now.");
-        document.getElementById("passkey-submit").disabled = true;
+        $("#passkey-submit").prop("disabled", true);
       }
     }
 
@@ -469,8 +630,8 @@
       enterInterview(pending);
     } else if (!slug) {
       showError("No invite slug in the link.");
-      document.getElementById("passkey-submit").disabled = true;
-      document.getElementById("browse-jobs-link").hidden = false;
+      $("#passkey-submit").prop("disabled", true);
+      $("#browse-jobs-link").prop("hidden", false);
     } else {
       loadPreview();
     }
