@@ -22,21 +22,38 @@ class LocalFsBlobStore:
     secret: str = "local-fs-dev-secret"
 
     def __post_init__(self) -> None:
+        self.root = self.root.resolve()
         self.root.mkdir(parents=True, exist_ok=True)
 
     async def put(self, key: str, content: bytes, *, mime: str) -> str:
-        path = self.root / key
+        path = self._resolve(key)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
         return f"local_fs://{key}"
 
     async def get(self, uri: str) -> bytes:
         key = _strip_scheme(uri)
-        path = self.root / key
+        path = self._resolve(key)
         try:
             return path.read_bytes()
         except FileNotFoundError as exc:
             raise PortError(f"no blob at {uri!r}", transient=False, status=404) from exc
+
+    def _resolve(self, key: str) -> Path:
+        """Join `key` onto `root`, refusing anything that would escape it.
+
+        `Path(root) / "/etc/passwd"` silently discards `root` in pathlib, and
+        `..` segments walk back out of it -- both are a path-traversal write
+        or read if the key comes from a caller. `key` is always an artifact
+        id, never user-supplied text, but this stays a hard boundary, not a
+        trust call.
+        """
+        candidate = (self.root / key).resolve()
+        if candidate != self.root and self.root not in candidate.parents:
+            raise PortError(
+                f"blob key {key!r} escapes the storage root", transient=False, status=400
+            )
+        return candidate
 
     async def signed_url(self, uri: str, *, expires_in_seconds: int) -> str:
         key = _strip_scheme(uri)

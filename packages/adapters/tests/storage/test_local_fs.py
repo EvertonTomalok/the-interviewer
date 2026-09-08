@@ -46,4 +46,27 @@ def test_build_reads_root_from_settings(tmp_path: Path) -> None:
     store = build_storage(settings)
 
     assert isinstance(store, LocalFsBlobStore)
-    assert store.root == tmp_path / "blobs"
+    assert store.root == (tmp_path / "blobs").resolve()
+
+
+async def test_put_rejects_key_that_escapes_root_via_dotdot(tmp_path: Path) -> None:
+    store = LocalFsBlobStore(root=tmp_path / "root")
+    with pytest.raises(PortError):
+        await store.put("../../etc/passwd", b"pwned", mime="text/plain")
+
+
+async def test_put_rejects_absolute_key(tmp_path: Path) -> None:
+    store = LocalFsBlobStore(root=tmp_path / "root")
+    outside = tmp_path / "outside.wav"
+    with pytest.raises(PortError):
+        await store.put(str(outside), b"pwned", mime="audio/wav")
+    assert not outside.exists()
+
+
+async def test_get_rejects_key_that_escapes_root(tmp_path: Path) -> None:
+    secret = tmp_path / "secret.txt"
+    secret.write_text("top secret")
+    store = LocalFsBlobStore(root=tmp_path / "root")
+
+    with pytest.raises(PortError):
+        await store.get("local_fs://../secret.txt")
