@@ -345,3 +345,58 @@ plan, in two steps behind ports that do not exist yet:
 Everything else scoped as an expansion — a real S3/GCS drill, the Temporal
 adapter, SSE progress, per-run cost accounting — attaches the same way: a new
 adapter behind a port this build already has.
+
+## 11. API endpoints
+
+Every JSON response uses the same envelope (`success`, `data`, `error`,
+`metadata`) from `interviewer_api.envelope`. Three auth tiers: **public** (no
+token), **candidate** (`Authorization: Bearer <candidate token>`, checked by
+`deps.require_candidate_session`), **admin** (`Authorization: Bearer <admin
+token>`, checked by `deps.require_admin`) — see §5's Auth block for how a
+token is minted.
+
+**Health**
+
+| Method & path | Auth | What it does |
+|---|---|---|
+| `GET /healthz` | public | liveness only, no dependency check |
+| `GET /readyz` | public | pings Postgres and, if `WORKFLOW_PROVIDER=redis`, Redis too; `503` if either is down |
+
+**Public — browsing and admin auth**
+
+| Method & path | Auth | What it does |
+|---|---|---|
+| `GET /jobs` | public | lists published jobs (area + latest persona) for `jobs.html` |
+| `POST /jobs/{area_id}/start` | public | self-claims a single-use, 1-hour invite server-side and returns a candidate token — no passkey step |
+| `POST /auth/register` | public | creates an admin account; `403` unless `REGISTRATION_OPEN=true` |
+| `POST /auth/login` | public | email + password → admin bearer token |
+
+**Candidate — the shared link and the turn loop**
+
+| Method & path | Auth | What it does |
+|---|---|---|
+| `GET /i/{slug}` | public | `interview.html` to a browser (`Accept: text/html`), a no-credential invite preview to the page's own `fetch()` |
+| `POST /i/{slug}/claim` | public | passkey → candidate token (admin-issued entry point; same token shape as `/jobs/{area_id}/start`) |
+| `GET /session` | candidate | current phase, question, and turn history for the caller's own session |
+| `POST /session/turns` | candidate | uploads one answer's audio; `202` and starts the `"turn"` workflow (§3) |
+| `POST /session/finish` | candidate | `202` and starts the `"evaluation"` workflow; only valid once `phase` is `closing`/`evaluating`/`completed` |
+| `GET /session/runs/{run_id}` | candidate | polls a workflow run — an `"evaluation"` run never leaks a score, only `status` |
+| `GET /session/artifacts/{artifact_id}` | candidate | streams one audio artifact, scoped to the caller's own session |
+
+**Admin — areas, personas, invites, review**
+
+| Method & path | Auth | What it does |
+|---|---|---|
+| `POST /areas` | admin | creates an interview area |
+| `POST /areas/{area_id}/personas` | admin | publishes a new persona version for an area |
+| `POST /invites` | admin | mints an `/i/{slug}` invite + one-time passkey — returned once here, never again |
+| `DELETE /invites/{invite_id}` | admin | retires an invite; sessions already claimed under it are untouched |
+| `GET /admin/sessions` | admin | every session, newest first, with area/persona/phase/overall score |
+| `GET /admin/sessions/{session_id}` | admin | one session's full transcript and report (scores, verdicts, rationale) — the only route that ever serves a score |
+| `GET /admin/artifacts/{artifact_id}` | admin | streams any audio artifact, not scoped to one candidate's session |
+
+**Static**
+
+`apps/web/` (`jobs.html`, `interview.html`, `admin.html`) is served by a
+`StaticFiles` mount at `/`, registered last in
+`apps/api/src/interviewer_api/main.py` so it never shadows a route above it.
