@@ -32,8 +32,48 @@ from interviewer_core.errors import ConfigError
 _POLL_INTERVAL_SECONDS = 0.5
 _POLL_TIMEOUT_SECONDS = 60.0
 
+_PERSONA_QUESTIONS = [
+    {
+        "ref": "q1",
+        "topic": "http",
+        "text": "What's the difference between a 401 and a 403 response?",
+        "expected_answer": (
+            "401 means the request has no valid credentials (unauthenticated); "
+            "403 means the credentials are valid but not allowed to do this "
+            "(unauthorized)."
+        ),
+        "weight": 1.0,
+        "follow_up_depth": 0,
+    },
+    {
+        "ref": "q2",
+        "topic": "databases",
+        "text": "What's a database index, and what does it cost you?",
+        "expected_answer": (
+            "An index is a data structure (often a B-tree) that speeds up reads "
+            "by avoiding a full table scan, at the cost of extra storage and "
+            "slower writes since every insert/update also updates the index."
+        ),
+        "weight": 1.0,
+        "follow_up_depth": 0,
+    },
+    {
+        "ref": "q3",
+        "topic": "concurrency",
+        "text": "What's a race condition, and how would you guard against one?",
+        "expected_answer": (
+            "A race condition happens when two operations touch shared state "
+            "concurrently and the outcome depends on timing; guard with a lock, "
+            "an atomic operation, or a transaction with the right isolation level."
+        ),
+        "weight": 1.0,
+        "follow_up_depth": 0,
+    },
+]
+
 _PERSONA = {
     "name": "Backend Engineer Screen",
+    "version": 1,
     "language": "en",
     "voice": None,
     "llm_provider": "fake",
@@ -48,47 +88,18 @@ _PERSONA = {
     ),
     "intake_prompt_text": "Sorry, I didn't catch that -- what's your name?",
     "farewell_text": "That's everything I need. Thanks so much for your time!",
-    "questions": [
-        {
-            "ref": "q1",
-            "topic": "http",
-            "text": "What's the difference between a 401 and a 403 response?",
-            "expected_answer": (
-                "401 means the request has no valid credentials (unauthenticated); "
-                "403 means the credentials are valid but not allowed to do this "
-                "(unauthorized)."
-            ),
-            "weight": 1.0,
-            "follow_up_depth": 1,
-        },
-        {
-            "ref": "q2",
-            "topic": "databases",
-            "text": "What's a database index, and what does it cost you?",
-            "expected_answer": (
-                "An index is a data structure (often a B-tree) that speeds up reads "
-                "by avoiding a full table scan, at the cost of extra storage and "
-                "slower writes since every insert/update also updates the index."
-            ),
-            "weight": 1.0,
-            "follow_up_depth": 1,
-        },
-        {
-            "ref": "q3",
-            "topic": "concurrency",
-            "text": "What's a race condition, and how would you guard against one?",
-            "expected_answer": (
-                "A race condition happens when two operations touch shared state "
-                "concurrently and the outcome depends on timing; guard with a lock, "
-                "an atomic operation, or a transaction with the right isolation level."
-            ),
-            "weight": 1.0,
-            "follow_up_depth": 1,
-        },
-    ],
-    "policy": "guided",
+    "questions": _PERSONA_QUESTIONS,
+    # "adaptive", with follow_up_depth=0 per question, moves on after one
+    # attempt regardless of the answer's score -- "guided" only advances
+    # once a question is scored `answered`, which FakeSTT's content-free
+    # transcript can never trigger against a real expected_answer, so the
+    # demo would loop on question 1 forever under the no-STT-configured
+    # fallback. max_questions == len(questions) is what actually closes
+    # the interview then (coverage-based completion never fires without a
+    # real STT/LLM scoring a real answer) -- see docs/adr/0004.
+    "policy": "adaptive",
     "min_coverage": 0.3,
-    "max_questions": 8,
+    "max_questions": len(_PERSONA_QUESTIONS),
     "rubric": (
         "Score each answer 0-1 on how much of the expected concept it actually "
         "covers, not on phrasing. A partial, correct answer beats a fluent, "
@@ -142,15 +153,20 @@ class DemoClient:
     # -- admin setup --------------------------------------------------------
 
     def register_or_login_admin(self, email: str, password: str) -> str:
+        # /auth/register only creates the account (id, email) -- it never
+        # issues a token, by design (PRD §7/§8: register and login are
+        # separate concerns). Register (best-effort: already-registered is
+        # not an error here), then always log in for the token.
         register = self._client.post("/auth/register", json={"email": email, "password": password})
-        if register.status_code == 201 or register.status_code == 200:
-            data = _unwrap(register, expect=(200, 201))
+        if register.status_code in (200, 201):
             print(f"seeded admin: {email}")
-            return str(data["access_token"])
+        elif register.status_code == 409:
+            print(f"admin already existed: {email}")
+        else:
+            _unwrap(register, expect=(200, 201))  # raises DemoError naming what went wrong
 
         login = self._client.post("/auth/login", json={"email": email, "password": password})
         data = _unwrap(login, expect=(200,))
-        print(f"admin already existed, logged in: {email}")
         return str(data["access_token"])
 
     def create_area(self, admin_token: str, *, slug: str, name: str) -> str:
@@ -322,8 +338,14 @@ def run(args: argparse.Namespace) -> int:
         finish_result = client.finish(candidate_token)
         eval_state = client.poll_run(candidate_token, finish_result["run_id"])
         if eval_state["status"] != "succeeded":
-            raise DemoError(f"evaluation failed: {eval_state.get('error')}")
-        print("  status: sent for review (no score, no rationale -- candidate never sees one)")
+            # Scoring needs a real model to return real JSON -- FakeLLM's
+            # unscripted default text is not it. The interview itself
+            # (the point of this script, PRD's "executable proof") already
+            # completed; say so plainly instead of failing the whole run.
+            print(f"  status: sent for review, but scoring failed: {eval_state.get('error')}")
+            print("  (scoring needs a real LLM_PROVIDER -- fake has no rubric to apply)")
+        else:
+            print("  status: sent for review (no score, no rationale -- candidate never sees one)")
 
         session_id = client.latest_admin_session_id(admin_token)
         if session_id:

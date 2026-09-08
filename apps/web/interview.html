@@ -452,6 +452,18 @@
       document.getElementById("screen-interview").hidden = false;
     }
 
+    async function loadPreview() {
+      try {
+        const data = await api(`/i/${encodeURIComponent(slug)}`);
+        document.getElementById("passkey-intro").textContent =
+          `${data.persona_name}${data.area_name ? " -- " + data.area_name : ""} ` +
+          `(${data.question_total} questions). Enter the passkey from your invite link.`;
+      } catch {
+        showError("This link isn't valid right now.");
+        document.getElementById("passkey-submit").disabled = true;
+      }
+    }
+
     const pending = pendingSessionFromJobsPage();
     if (pending) {
       enterInterview(pending);
@@ -459,6 +471,8 @@
       showError("No invite slug in the link.");
       document.getElementById("passkey-submit").disabled = true;
       document.getElementById("browse-jobs-link").hidden = false;
+    } else {
+      loadPreview();
     }
   </script>
 </body>

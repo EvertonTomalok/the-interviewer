@@ -132,23 +132,35 @@ class InlineWorkflowEngine:
                             _BASE_BACKOFF_SECONDS * attempt + random.uniform(0, _MAX_JITTER_SECONDS)
                         )
                         continue
-                    await self._records.save(
-                        WorkflowStepRecord(
-                            run_id=run.id,
-                            name=step.name,
-                            status="failed",
-                            output=None,
-                            attempts=attempt,
-                            updated_at=self._clock.now(),
-                        )
-                    )
-                    await self._fail_run(run, step.name, str(exc))
+                    await self._fail_step_and_run(run, step.name, attempt, str(exc))
+                    raise
+                except Exception as exc:  # noqa: BLE001 -- a step's own bug or bad data is a
+                    # permanent failure of this run, classified like a non-transient
+                    # PortError; it must still mark the run failed (never leave it
+                    # stuck at "running" forever) before propagating -- see ADR 0004's
+                    # neighbor incident on the redis_streams side of this same fix.
+                    await self._fail_step_and_run(run, step.name, attempt, str(exc))
                     raise
                 else:
                     outputs[step.name] = output
                     break
 
         await self._succeed_run(run)
+
+    async def _fail_step_and_run(
+        self, run: WorkflowRun, step_name: str, attempt: int, error: str
+    ) -> None:
+        await self._records.save(
+            WorkflowStepRecord(
+                run_id=run.id,
+                name=step_name,
+                status="failed",
+                output=None,
+                attempts=attempt,
+                updated_at=self._clock.now(),
+            )
+        )
+        await self._fail_run(run, step_name, error)
 
     async def _fail_run(self, run: WorkflowRun, step_name: str, error: str) -> None:
         failed = replace(

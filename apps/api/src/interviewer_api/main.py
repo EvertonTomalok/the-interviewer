@@ -6,15 +6,25 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from interviewer_adapters.persistence import SessionFactory
 from interviewer_api import deps
 from interviewer_api.envelope import envelope, register_error_handlers
 from interviewer_api.routers import admin, auth, jobs, session
 from interviewer_core.config import Settings
+
+#: `apps/web/*.html` -- static, no build step. Mounted last so it never
+#: shadows an API route above it; `html=True` serves `admin.html` at
+#: `/admin.html` without the extension. `interview.html`'s own shared-link
+#: path (`/i/{slug}`) is served by `session.invite_landing`, not by this
+#: mount, since it needs to content-negotiate against the same path a
+#: browser navigates to and the page's own `fetch()` calls.
+_WEB_DIR = Path(__file__).resolve().parents[4] / "apps" / "web"
 
 
 @asynccontextmanager
@@ -78,3 +88,9 @@ async def readyz(
             ),
         )
     return JSONResponse(content=envelope(data={"status": "ok"}, metadata=checks))
+
+
+# Mounted last: a `Mount` matches by path prefix and Starlette resolves in
+# registration order, so every route above -- including `/i/{slug}` itself --
+# gets first refusal before this catch-all serves a static file.
+app.mount("/", StaticFiles(directory=_WEB_DIR, html=True), name="web")

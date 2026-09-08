@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 
 from interviewer_adapters.persistence import DuplicateKeyError
@@ -21,12 +21,14 @@ from interviewer_core.ports.clock import Clock
 from interviewer_core.ports.ids import IdGenerator
 from interviewer_core.ports.repositories import (
     AreaRepository,
+    ArtifactRepository,
     InviteRepository,
     PersonaRepository,
     ReportRepository,
     SessionRepository,
     TurnRepository,
 )
+from interviewer_core.ports.storage import BlobStore
 
 router = APIRouter(dependencies=[Depends(deps.require_admin)])
 
@@ -175,6 +177,36 @@ async def retire_invite(
     await invites.delete(invite_id)
 
 
+@router.get("/admin/sessions")
+async def list_sessions(
+    _admin: TokenClaims = Depends(deps.require_admin),
+    sessions: SessionRepository = Depends(deps.get_session_repo),
+    personas: PersonaRepository = Depends(deps.get_persona_repo),
+    areas: AreaRepository = Depends(deps.get_area_repo),
+    reports: ReportRepository = Depends(deps.get_report_repo),
+) -> dict[str, object]:
+    """One row per session, newest first. Small-scale by design (PoC): a
+    handful of lookups per row beats a join query no other reader needs --
+    see `SessionRepository.list_all`'s own docstring."""
+    rows = []
+    for session in await sessions.list_all():
+        persona = await personas.get(session.persona_id)
+        area = await areas.get(persona.area_id) if persona else None
+        report = await reports.get_for_session(session.id)
+        rows.append(
+            {
+                "id": session.id,
+                "candidate_name": session.candidate_name,
+                "area": area.name if area else None,
+                "persona_version": persona.version if persona else None,
+                "phase": session.phase,
+                "overall_score": report.overall_score if report else None,
+                "date": session.started_at,
+            }
+        )
+    return envelope(data=rows)
+
+
 @router.get("/admin/sessions/{session_id}")
 async def get_session_detail(
     session_id: str,
@@ -231,3 +263,20 @@ async def get_session_detail(
             ),
         }
     )
+
+
+@router.get("/admin/artifacts/{artifact_id}")
+async def get_artifact(
+    artifact_id: str,
+    _admin: TokenClaims = Depends(deps.require_admin),
+    artifacts: ArtifactRepository = Depends(deps.get_artifact_repo),
+    storage: BlobStore = Depends(deps.get_storage),
+) -> Response:
+    """The admin twin of `session.get_artifact`: any recording, not scoped
+    to one candidate's own session, because a reviewer's whole job here is
+    reading turns that were never theirs."""
+    artifact = await artifacts.get(artifact_id)
+    if artifact is None:
+        raise not_found(f"no artifact {artifact_id!r}")
+    content = await storage.get(artifact.uri)
+    return Response(content=content, media_type=artifact.mime)

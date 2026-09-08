@@ -128,6 +128,9 @@ class InMemorySessionRepository:
             raise LookupError(f"no session {session.id!r} to update")
         self._by_id[session.id] = session
 
+    async def list_all(self) -> Sequence[Session]:
+        return sorted(self._by_id.values(), key=lambda s: s.started_at, reverse=True)
+
 
 class InMemoryTurnRepository:
     def __init__(self) -> None:

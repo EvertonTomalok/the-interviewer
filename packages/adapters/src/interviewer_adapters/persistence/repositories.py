@@ -354,6 +354,12 @@ class SqlSessionRepository:
             session.add(row)
             await session.commit()
 
+    async def list_all(self) -> Sequence[Session]:
+        async with self._session_factory() as session:
+            stmt = select(SessionTable).order_by(col(SessionTable.started_at).desc())
+            result = await session.execute(stmt)
+            return [_session_to_domain(r) for r in result.scalars().all()]
+
 
 class SqlTurnRepository:
     def __init__(self, session_factory: SessionFactory) -> None:

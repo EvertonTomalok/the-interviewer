@@ -210,6 +210,25 @@
       }[c]));
     }
 
+    async function loadAudio(artifactId) {
+      // /admin/artifacts/{id} needs the admin bearer token, which a plain
+      // <audio src> can't carry -- fetch the bytes ourselves and play an
+      // object URL instead, same as interview.html does for its own audio.
+      const audio = document.createElement("audio");
+      audio.controls = true;
+      try {
+        const response = await fetch(`/admin/artifacts/${artifactId}`, {
+          headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        if (response.ok) {
+          audio.src = URL.createObjectURL(await response.blob());
+        }
+      } catch {
+        // a recording that fails to load never blocks the rest of the transcript
+      }
+      return audio;
+    }
+
     async function openSession(id) {
       clearError();
       let data;
@@ -232,10 +251,7 @@
         p.textContent = `[${turn.kind}] ${turn.transcript ?? ""}`;
         transcript.appendChild(p);
         if (turn.audio_artifact_id) {
-          const audio = document.createElement("audio");
-          audio.controls = true;
-          audio.src = `/session/artifacts/${turn.audio_artifact_id}`;
-          transcript.appendChild(audio);
+          transcript.appendChild(await loadAudio(turn.audio_artifact_id));
         }
       }
 
