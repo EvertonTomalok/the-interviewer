@@ -1,0 +1,20 @@
+[project]
+name = "interviewer-worker"
+version = "0.1.0"
+description = "Workflow consumer process: same core, same adapters, no HTTP"
+requires-python = ">=3.12"
+dependencies = [
+    "interviewer-core",
+    "interviewer-adapters",
+]
+
+[tool.uv.sources]
+interviewer-core = { workspace = true }
+interviewer-adapters = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/interviewer_worker"]

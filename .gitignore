@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# the-interviewer project
+var/blobs/*
+!var/blobs/.gitkeep
+htmlcov/
+.claude/worktrees/
