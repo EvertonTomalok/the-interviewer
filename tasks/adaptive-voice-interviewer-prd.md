@@ -352,7 +352,10 @@ Session(id, invite_id, area_id, persona_version_id,
         phase, language, coverage_json, started_at, ended_at)
 Turn(id, session_id, index, kind, role, transcript, audio_artifact_id,
      question_ref, usage_json, created_at)           # unique(session_id, index)
-Artifact(id, session_id, kind, mime, size_bytes, uri, checksum, created_at)
+Artifact(id, session_id, kind, mime, size_bytes, duration_seconds, uri, checksum, created_at)
+                                                     # duration_seconds: audio only,
+                                                     # null when it cannot be determined
+                                                     # (E6 talk-ratio input)
 InterviewReport(id, session_id, persona_version_id, overall_score,
                 per_question_json, summary, usage_json, created_at)
                                                      # unique(session_id)
@@ -700,6 +703,8 @@ Three audiences, three levels of access, one envelope:
 | DELETE | `/invites/{id}` | retire a link that should stop working now |
 | GET | `/admin/sessions` | every interview: candidate name, area, persona version, phase, overall score, when. Filterable, paginated |
 | GET | `/admin/sessions/{id}` | one interview in full: transcript turn by turn, audio links, and the report |
+| GET | `/admin/sessions/{id}/metrics` | duration, talk ratio, topic coverage for one session — the numbers the replay view renders beside the transcript (E6) |
+| GET | `/admin/analytics/trend` | `overall_score` over time for sessions matching `area_id` (+ optional `persona_version_id`), for the trend chart (E6) |
 
 **There is no `GET /session/report`, and that is the design.** The candidate's
 routes cannot reach a score at all — not filtered, not redacted, absent. A field
@@ -816,6 +821,13 @@ produced it, unanswered ones included and marked.
 
 This page is the reason the product stores anything. An interview nobody reads is
 a paid API call with extra steps.
+
+**Session history (E6).** Reachable from the sessions table: filter by area
+(and date range), and each row additionally shows duration, talk ratio and
+topic-coverage percent. Opening a session from here plays its turns back in
+order — the same per-turn audio already served in §9.2's transcript view —
+with a metrics panel beside it, plus a small trend chart of `overall_score`
+over time scoped to the selected area.
 
 ---
 
@@ -973,6 +985,14 @@ out of scope now so the loop finishes first.
 | E3 | SSE progress for a running turn | UX polish over the polling loop |
 | E4 | Per-run and per-report cost accounting from provider usage | every step already returns usage; this aggregates it |
 | E5 | **Typed answers** — a text alternative to recording | a second turn kind: no artifact, `transcribe` skipped and checkpointed the way `synthesize` already is, a textarea beside the recorder. Cheap **because** the skip-and-checkpoint pattern exists; still out, because the product is an interview that is listened to |
+| E6 | **Replay + analytics** | A session-history view for the admin: filter sessions by area/persona/date, open one to replay its transcript turn-by-turn with audio, and see per-session metrics — duration (`ended_at - started_at`), talk ratio (candidate audio seconds ÷ session duration, from a new `Artifact.duration_seconds`), topic coverage (already tracked in `Session.coverage_json`, just rendered), and a score trend across an area's sessions over time. Read-only: no new port, no new external adapter — aggregates what `SessionRepository`/`ArtifactRepository`/`InterviewReportRepository` already store |
+
+### E6 tasks
+
+| # | Wave | Task | Depends on | Owns | Done when |
+|---|---|---|---|---|---|
+| T17 | E6-1 | **Analytics data + endpoints** — `Artifact.duration_seconds` (migration + populate at `persist_audio`/from STT usage), talk-ratio/coverage aggregation, `GET /admin/sessions/{id}/metrics`, `GET /admin/analytics/trend` | T7, T12 | `core/domain` (Artifact field), `adapters/persistence/**` (migration), `apps/api/**` (new admin routes) | metrics endpoint returns correct duration/talk-ratio/coverage on a seeded session; trend endpoint returns scores ordered by time for an area |
+| T18 | E6-2 | **Replay + analytics UI** — session-history filter/list, per-session replay (transcript + sequential audio playback) with metrics panel, score-trend chart, all in `admin.html` | T17, T14 | `apps/web/**` | admin can filter sessions by area, open one, replay every turn's audio in order, see its metrics, and see a trend chart for that area |
 
 ---
 
