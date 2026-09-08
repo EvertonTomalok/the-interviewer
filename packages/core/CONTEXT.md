@@ -6,11 +6,16 @@ state machines, every `typing.Protocol` an adapter implements, the provider
 registry, settings and logging. It owns zero I/O — no database, no HTTP
 client, no queue.
 
-**Public surface** — `interviewer_core.domain`, `interviewer_core.ports`,
-`interviewer_core.engine`, `interviewer_core.registry`,
-`interviewer_core.config`, `interviewer_core.logging`, `interviewer_core.errors`.
-Populated starting with the settings/errors/domain/ports/registry task; see
-this package's git history for what has landed.
+**Public surface** — `interviewer_core.domain` (entities, `SessionPhase`,
+`advance()`), `interviewer_core.ports` (`LLMPort`, `SpeechToTextPort`,
+`TextToSpeechPort`, `BlobStore`, the nine repository Protocols,
+`WorkflowEngine`/`WorkflowStep`/`StepContext`, `Clock`/`SystemClock`/`FrozenClock`,
+`IdGenerator`/`Uuid7Ids`/`SeqIds`), `interviewer_core.registry`
+(`ProviderSpec`, `register`, `require_spec`, `known_providers`),
+`interviewer_core.config.load_settings`, `interviewer_core.logging.get_logger`,
+`interviewer_core.errors` (`ConfigError`, `PortError`, `DomainError`).
+`interviewer_core.engine` is not populated yet — it lands with the interview
+engine task.
 
 **Depends on** — nothing outside the standard library and `pydantic`
 (including `pydantic-settings`). Not `sqlmodel`, not `httpx`, not `redis`,
