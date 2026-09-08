@@ -424,10 +424,24 @@
       showError("This session has expired -- the link has already been used up.");
     }
 
-    if (!slug) {
-      showError("No invite slug in the link.");
-      document.getElementById("passkey-submit").disabled = true;
+    async function loadPreview() {
+      if (!slug) {
+        showError("No invite slug in the link.");
+        document.getElementById("passkey-submit").disabled = true;
+        return;
+      }
+      try {
+        const data = await api(`/i/${encodeURIComponent(slug)}`);
+        document.getElementById("passkey-intro").textContent =
+          `${data.persona_name}${data.area_name ? " -- " + data.area_name : ""} ` +
+          `(${data.question_total} questions). Enter the passkey from your invite link.`;
+      } catch {
+        showError("This link isn't valid right now.");
+        document.getElementById("passkey-submit").disabled = true;
+      }
     }
+
+    loadPreview();
   </script>
 </body>
 </html>

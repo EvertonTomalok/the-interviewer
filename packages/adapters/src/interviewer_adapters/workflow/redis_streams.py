@@ -244,23 +244,36 @@ class RedisStreamsWorkflowEngine:
                     await self._redis.zadd(self._delayed_key(run.workflow), {run.id: due})
                     return "deferred"
 
-                await self._records.save(
-                    WorkflowStepRecord(
-                        run_id=run.id,
-                        name=step.name,
-                        status="failed",
-                        output=None,
-                        attempts=attempt,
-                        updated_at=self._clock.now(),
-                    )
-                )
-                await self._fail_run(run, step.name, str(exc))
+                await self._fail_step_and_run(run, step.name, attempt, str(exc))
+                return "failed"
+            except Exception as exc:  # noqa: BLE001 -- a step's own bug or bad data is a
+                # permanent failure of this run, classified like a non-transient
+                # PortError; it must never propagate out of the drain loop and
+                # take the whole worker process down with it (see ADR 0004's
+                # neighbor incident: an unscored LLM response here used to kill
+                # the worker instead of just failing the one run).
+                await self._fail_step_and_run(run, step.name, attempt, str(exc))
                 return "failed"
             else:
                 outputs[step.name] = output
 
         await self._succeed_run(run)
         return "succeeded"
+
+    async def _fail_step_and_run(
+        self, run: WorkflowRun, step_name: str, attempt: int, error: str
+    ) -> None:
+        await self._records.save(
+            WorkflowStepRecord(
+                run_id=run.id,
+                name=step_name,
+                status="failed",
+                output=None,
+                attempts=attempt,
+                updated_at=self._clock.now(),
+            )
+        )
+        await self._fail_run(run, step_name, error)
 
     async def _fail_run(self, run: WorkflowRun, step_name: str, error: str) -> None:
         failed = replace(

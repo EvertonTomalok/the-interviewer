@@ -5,9 +5,11 @@ token. No route in this module ever serves a score.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, Form, Response, UploadFile
+from fastapi import APIRouter, Depends, Form, Request, Response, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from interviewer_adapters.persistence import DuplicateKeyError
@@ -25,6 +27,7 @@ from interviewer_core.logging import get_logger
 from interviewer_core.ports.clock import Clock
 from interviewer_core.ports.ids import IdGenerator
 from interviewer_core.ports.repositories import (
+    AreaRepository,
     ArtifactRepository,
     InviteRepository,
     PersonaRepository,
@@ -37,6 +40,11 @@ from interviewer_core.ports.workflow import WorkflowEngine
 
 router = APIRouter()
 _log = get_logger("interviewer_api.session")
+
+#: `apps/web/interview.html`, resolved relative to this file so it works the
+#: same from a checkout or from the container image (WORKDIR is the repo
+#: root either way -- see `Dockerfile`).
+_WEB_DIR = Path(__file__).resolve().parents[5] / "apps" / "web"
 
 
 async def _start_run(
@@ -79,6 +87,43 @@ async def _start_run(
         f"{workflow}:{run.id}", engine.start(workflow, payload, idempotency_key=idempotency_key)
     )
     return run.id
+
+
+# --- the shared link: the page for a browser, a preview for the page's own JS --
+
+
+@router.get("/i/{slug}", response_model=None)
+async def invite_landing(
+    slug: str,
+    request: Request,
+    invites: InviteRepository = Depends(deps.get_invite_repo),
+    personas: PersonaRepository = Depends(deps.get_persona_repo),
+    areas: AreaRepository = Depends(deps.get_area_repo),
+    clock: Clock = Depends(deps.get_clock),
+) -> dict[str, object] | Response:
+    """The one URL a candidate is ever sent. A browser navigating here
+    (`Accept: text/html`) gets `interview.html` itself; the page's own
+    `fetch()` (no `text/html` preference) gets the no-credential preview --
+    area, persona name, question count, nothing a wrong guess could use to
+    tell one invite state from another (same uniform shape as `claim`)."""
+    if "text/html" in request.headers.get("accept", ""):
+        return FileResponse(_WEB_DIR / "interview.html")
+
+    invite = await invites.get_by_slug(slug)
+    if invite is None or not invite.is_claimable(clock.now()).claimable:
+        raise invalid_claim()
+    persona = await personas.get(invite.persona_id)
+    if persona is None:
+        raise invalid_claim()
+    area = await areas.get(persona.area_id)
+
+    return envelope(
+        data={
+            "area_name": area.name if area else "",
+            "persona_name": persona.name,
+            "question_total": len(persona.questions),
+        }
+    )
 
 
 # --- claim -------------------------------------------------------------------
