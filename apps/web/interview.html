@@ -5,19 +5,429 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Interview</title>
   <style>
-    :root { color-scheme: light dark; }
-    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 4rem auto; padding: 0 1rem; }
+    :root {
+      color-scheme: light dark;
+      --border: color-mix(in srgb, currentColor 20%, transparent);
+      --muted: color-mix(in srgb, currentColor 55%, transparent);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 36rem;
+      margin: 3rem auto;
+      padding: 0 1rem 4rem;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.25rem; }
+    button {
+      font: inherit;
+      padding: 0.5rem 1rem;
+      border-radius: 0.4rem;
+      border: 1px solid var(--border);
+      background: transparent;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+    input[type="password"], input[type="text"] {
+      font: inherit;
+      padding: 0.5rem;
+      border-radius: 0.4rem;
+      border: 1px solid var(--border);
+      width: 100%;
+    }
+    .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 0.75rem 0; }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 0.6rem;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .muted { color: var(--muted); font-size: 0.9rem; }
+    .error {
+      border: 1px solid #dc2626;
+      color: #dc2626;
+      border-radius: 0.4rem;
+      padding: 0.6rem 0.8rem;
+      margin: 0.75rem 0;
+    }
+    .thread .turn { margin: 0.75rem 0; }
+    .thread .candidate { text-align: right; }
+    .thread .interviewer { text-align: left; }
+    .thread .bubble {
+      display: inline-block;
+      max-width: 80%;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.6rem;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+    video { width: 100%; max-width: 12rem; border-radius: 0.5rem; display: block; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
   <h1>Interview</h1>
-  <p>
-    This page is a placeholder. The passkey screen, the camera-preview toggle
-    and the record / listen back / re-record / send loop land once the
-    session API exists.
-  </p>
+
+  <div id="error" class="error" hidden></div>
+
+  <section id="screen-passkey" class="card">
+    <p id="passkey-intro" class="muted">Enter the passkey from your invite link.</p>
+    <div class="row">
+      <input id="passkey-input" type="password" placeholder="Passkey" autocomplete="off" />
+      <button id="passkey-submit" class="primary">Continue</button>
+    </div>
+  </section>
+
+  <section id="screen-interview" hidden>
+    <div class="card">
+      <p id="greeting-text"></p>
+      <p class="muted" id="question-count"></p>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <button id="camera-toggle">Turn camera on</button>
+        <span class="muted">Preview only -- no frame is read, uploaded or stored.</span>
+      </div>
+      <video id="camera-preview" autoplay muted playsinline hidden></video>
+    </div>
+
+    <div id="thread" class="thread"></div>
+
+    <div id="recorder-card" class="card">
+      <p id="prompt-text" class="muted"></p>
+      <div class="row">
+        <button id="record-btn">Record answer</button>
+        <button id="stop-btn" hidden>Stop</button>
+        <audio id="playback" controls hidden></audio>
+      </div>
+      <div class="row">
+        <button id="rerecord-btn" hidden>Re-record</button>
+        <button id="send-btn" class="primary" hidden>Send</button>
+      </div>
+      <p id="status-text" class="muted"></p>
+    </div>
+
+    <div id="closing-card" class="card" hidden>
+      <p id="closing-text"></p>
+      <button id="finish-btn" class="primary">Finish</button>
+    </div>
+  </section>
+
+  <section id="screen-done" class="card" hidden>
+    <p>Sent for review. Thanks for your time.</p>
+  </section>
+
   <script type="module">
-    // Filled in once /session/* routes exist.
+    const errorBox = document.getElementById("error");
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.hidden = false;
+    }
+    function clearError() {
+      errorBox.hidden = true;
+      errorBox.textContent = "";
+    }
+
+    function slugFromLocation() {
+      const match = window.location.pathname.match(/\/i\/([^/]+)/);
+      if (match) return match[1];
+      const params = new URLSearchParams(window.location.search);
+      return params.get("slug") || "";
+    }
+
+    const slug = slugFromLocation();
+    let candidateToken = null;
+    let questionTotal = null;
+    let sending = false;
+    let takeBlob = null;
+    let takeUrl = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let cameraStream = null;
+
+    async function api(path, options = {}) {
+      const headers = Object.assign({}, options.headers || {});
+      if (candidateToken) headers["Authorization"] = `Bearer ${candidateToken}`;
+      const response = await fetch(path, Object.assign({}, options, { headers }));
+      let body;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+      if (response.status === 401) {
+        throw new SessionExpiredError();
+      }
+      if (!response.ok || (body && body.success === false)) {
+        const message = (body && body.error) || `request to ${path} failed (${response.status})`;
+        throw new Error(message);
+      }
+      return body ? body.data : null;
+    }
+
+    class SessionExpiredError extends Error {}
+
+    document.getElementById("passkey-submit").addEventListener("click", claim);
+    document.getElementById("passkey-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") claim();
+    });
+
+    async function claim() {
+      clearError();
+      const passkey = document.getElementById("passkey-input").value;
+      if (!passkey) return;
+      document.getElementById("passkey-submit").disabled = true;
+      try {
+        const data = await api(`/i/${encodeURIComponent(slug)}/claim`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ passkey }),
+        });
+        candidateToken = data.access_token;
+        questionTotal = data.question_total;
+        document.getElementById("greeting-text").textContent = data.greeting_text;
+        document.getElementById("question-count").textContent =
+          questionTotal != null ? `${questionTotal} questions` : "";
+        document.getElementById("prompt-text").textContent = data.intake_prompt_text || "";
+        document.getElementById("screen-passkey").hidden = true;
+        document.getElementById("screen-interview").hidden = false;
+      } catch (err) {
+        showError(
+          err.message && err.message.toLowerCase().includes("passkey")
+            ? "That passkey doesn't work for this link."
+            : "This link isn't valid right now."
+        );
+      } finally {
+        document.getElementById("passkey-submit").disabled = false;
+      }
+    }
+
+    // -- camera preview: video only, never read, never sent -----------------
+
+    const cameraToggle = document.getElementById("camera-toggle");
+    const cameraPreview = document.getElementById("camera-preview");
+    cameraToggle.addEventListener("click", async () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((t) => t.stop());
+        cameraStream = null;
+        cameraPreview.srcObject = null;
+        cameraPreview.hidden = true;
+        cameraToggle.textContent = "Turn camera on";
+        return;
+      }
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        cameraPreview.srcObject = cameraStream;
+        cameraPreview.hidden = false;
+        cameraToggle.textContent = "Turn camera off";
+      } catch {
+        showError("Couldn't access the camera -- you can still continue without it.");
+      }
+    });
+
+    // -- record / listen back / re-record / send -----------------------------
+
+    const recordBtn = document.getElementById("record-btn");
+    const stopBtn = document.getElementById("stop-btn");
+    const rerecordBtn = document.getElementById("rerecord-btn");
+    const sendBtn = document.getElementById("send-btn");
+    const playback = document.getElementById("playback");
+    const statusText = document.getElementById("status-text");
+
+    function resetTake() {
+      if (takeUrl) URL.revokeObjectURL(takeUrl);
+      takeUrl = null;
+      takeBlob = null;
+      playback.hidden = true;
+      playback.removeAttribute("src");
+      recordBtn.hidden = false;
+      rerecordBtn.hidden = true;
+      sendBtn.hidden = true;
+    }
+
+    recordBtn.addEventListener("click", async () => {
+      clearError();
+      let micStream;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch {
+        showError("Microphone permission was denied -- allow it to record an answer.");
+        return;
+      }
+      recordedChunks = [];
+      mediaRecorder = new MediaRecorder(micStream);
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+      mediaRecorder.onstop = () => {
+        micStream.getTracks().forEach((t) => t.stop());
+        if (takeUrl) URL.revokeObjectURL(takeUrl);
+        takeBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+        takeUrl = URL.createObjectURL(takeBlob);
+        playback.src = takeUrl;
+        playback.hidden = false;
+        recordBtn.hidden = true;
+        stopBtn.hidden = true;
+        rerecordBtn.hidden = false;
+        sendBtn.hidden = false;
+      };
+      mediaRecorder.start();
+      recordBtn.hidden = true;
+      stopBtn.hidden = false;
+    });
+
+    stopBtn.addEventListener("click", () => {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+      stopBtn.hidden = true;
+    });
+
+    rerecordBtn.addEventListener("click", () => {
+      resetTake();
+    });
+
+    sendBtn.addEventListener("click", sendTake);
+
+    async function sendTake() {
+      if (sending || !takeBlob) return;
+      sending = true;
+      sendBtn.disabled = true;
+      clearError();
+      statusText.textContent = "Sending...";
+      try {
+        const form = new FormData();
+        const ext = (takeBlob.type.split("/")[1] || "webm").split(";")[0];
+        form.append("file", takeBlob, `take.${ext}`);
+        const result = await api("/session/turns", { method: "POST", body: form });
+        resetTake();
+        recordBtn.hidden = true; // stays hidden until the poll resolves
+        statusText.textContent = "Processing...";
+        await pollTurn(result.run_id);
+      } catch (err) {
+        if (err instanceof SessionExpiredError) return handleExpired();
+        statusText.textContent = "";
+        showError(`That answer didn't go through: ${err.message}. You can try again.`);
+        recordBtn.hidden = false;
+      } finally {
+        sending = false;
+        sendBtn.disabled = false;
+      }
+    }
+
+    function appendTurn(role, text) {
+      const thread = document.getElementById("thread");
+      const div = document.createElement("div");
+      div.className = `turn ${role}`;
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+      div.appendChild(bubble);
+      thread.appendChild(div);
+    }
+
+    async function pollTurn(runId) {
+      const deadline = Date.now() + 90_000;
+      while (Date.now() < deadline) {
+        let state;
+        try {
+          state = await api(`/session/runs/${runId}`);
+        } catch (err) {
+          if (err instanceof SessionExpiredError) return handleExpired();
+          throw err;
+        }
+        if (state.status === "failed") {
+          throw new Error(state.error || "the turn failed");
+        }
+        if (state.status === "succeeded") {
+          statusText.textContent = "";
+          appendTurn("candidate", state.transcript || "(no transcript)");
+          if (state.phase === "closing") {
+            showClosing(state);
+            return;
+          }
+          appendTurn("interviewer", state.question_text || "");
+          document.getElementById("prompt-text").textContent = state.question_text || "";
+          if (state.question_number != null) {
+            document.getElementById("question-count").textContent =
+              `${state.question_number} of ${state.question_total}`;
+          }
+          if (state.audio_artifact_id) await playInterviewerAudio(state.audio_artifact_id);
+          recordBtn.hidden = false;
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+      showError("This is taking longer than expected. It's still running -- check back shortly.");
+      recordBtn.hidden = false;
+    }
+
+    async function playInterviewerAudio(artifactId) {
+      const audio = new Audio(`/session/artifacts/${artifactId}`);
+      // best-effort: candidate token travels via the page's own fetch below,
+      // browsers can't attach Authorization to a plain <audio src> request.
+      try {
+        const response = await fetch(`/session/artifacts/${artifactId}`, {
+          headers: { Authorization: `Bearer ${candidateToken}` },
+        });
+        if (!response.ok) return;
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const el = new Audio(url);
+        await el.play().catch(() => {});
+      } catch {
+        // audio playback is a nice-to-have; a failure here never blocks the interview
+      }
+    }
+
+    function showClosing(state) {
+      document.getElementById("recorder-card").hidden = true;
+      document.getElementById("closing-card").hidden = false;
+      document.getElementById("closing-text").textContent = state.question_text || "";
+    }
+
+    document.getElementById("finish-btn").addEventListener("click", finish);
+
+    async function finish() {
+      if (sending) return;
+      sending = true;
+      const btn = document.getElementById("finish-btn");
+      btn.disabled = true;
+      clearError();
+      try {
+        const result = await api("/session/finish", { method: "POST" });
+        let state;
+        const deadline = Date.now() + 90_000;
+        while (Date.now() < deadline) {
+          state = await api(`/session/runs/${result.run_id}`);
+          if (state.status === "succeeded" || state.status === "failed") break;
+          await new Promise((r) => setTimeout(r, 1200));
+        }
+        if (!state || state.status !== "succeeded") {
+          throw new Error((state && state.error) || "finishing timed out");
+        }
+        document.getElementById("screen-interview").hidden = true;
+        document.getElementById("screen-done").hidden = false;
+      } catch (err) {
+        if (err instanceof SessionExpiredError) return handleExpired();
+        showError(`Couldn't finish the session: ${err.message}`);
+      } finally {
+        sending = false;
+        btn.disabled = false;
+      }
+    }
+
+    function handleExpired() {
+      candidateToken = null;
+      document.getElementById("screen-interview").hidden = true;
+      document.getElementById("screen-passkey").hidden = false;
+      showError("This session has expired -- the link has already been used up.");
+    }
+
+    if (!slug) {
+      showError("No invite slug in the link.");
+      document.getElementById("passkey-submit").disabled = true;
+    }
   </script>
 </body>
 </html>

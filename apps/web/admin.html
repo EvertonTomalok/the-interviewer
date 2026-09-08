@@ -5,18 +5,272 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Admin</title>
   <style>
-    :root { color-scheme: light dark; }
-    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 4rem auto; padding: 0 1rem; }
+    :root {
+      color-scheme: light dark;
+      --border: color-mix(in srgb, currentColor 20%, transparent);
+      --muted: color-mix(in srgb, currentColor 55%, transparent);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 48rem;
+      margin: 3rem auto;
+      padding: 0 1rem 4rem;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.25rem; }
+    button {
+      font: inherit;
+      padding: 0.4rem 0.9rem;
+      border-radius: 0.4rem;
+      border: 1px solid var(--border);
+      background: transparent;
+      cursor: pointer;
+    }
+    button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    input[type="password"], input[type="email"] {
+      font: inherit;
+      padding: 0.5rem;
+      border-radius: 0.4rem;
+      border: 1px solid var(--border);
+      width: 100%;
+    }
+    .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 0.75rem 0; }
+    .card { border: 1px solid var(--border); border-radius: 0.6rem; padding: 1rem; margin: 1rem 0; }
+    .muted { color: var(--muted); font-size: 0.9rem; }
+    .error {
+      border: 1px solid #dc2626; color: #dc2626; border-radius: 0.4rem;
+      padding: 0.6rem 0.8rem; margin: 0.75rem 0;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); }
+    tr[data-id] { cursor: pointer; }
+    tr[data-id]:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+    .score-row { display: flex; justify-content: space-between; gap: 1rem; margin: 0.5rem 0; }
+    .verdict { text-transform: capitalize; }
+    .not-answered { color: var(--muted); font-style: italic; }
+    audio { width: 100%; margin-top: 0.25rem; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
   <h1>Admin</h1>
-  <p>
-    This page is a placeholder. Login, the session list, the transcript view
-    and the report view land once the admin API routes exist.
-  </p>
+  <div id="error" class="error" hidden></div>
+
+  <section id="screen-login" class="card">
+    <div class="row"><input id="email" type="email" placeholder="Email" autocomplete="username" /></div>
+    <div class="row"><input id="password" type="password" placeholder="Password" autocomplete="current-password" /></div>
+    <div class="row"><button id="login-btn" class="primary">Log in</button></div>
+  </section>
+
+  <section id="screen-list" hidden>
+    <div class="row">
+      <button id="back-to-list" hidden>&larr; All sessions</button>
+      <span style="flex:1"></span>
+      <button id="logout-btn">Log out</button>
+    </div>
+    <div id="list-card" class="card">
+      <table>
+        <thead>
+          <tr><th>Candidate</th><th>Area</th><th>Persona v</th><th>Phase</th><th>Score</th><th>Date</th></tr>
+        </thead>
+        <tbody id="sessions-body"></tbody>
+      </table>
+      <p id="list-empty" class="muted" hidden>No sessions yet.</p>
+    </div>
+
+    <div id="detail-card" class="card" hidden>
+      <h2 id="detail-title"></h2>
+      <div id="transcript"></div>
+      <h3>Report</h3>
+      <div id="report"></div>
+    </div>
+  </section>
+
   <script type="module">
-    // Filled in once the admin routes exist.
+    const errorBox = document.getElementById("error");
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.hidden = false;
+    }
+    function clearError() {
+      errorBox.hidden = true;
+      errorBox.textContent = "";
+    }
+
+    let adminToken = null;
+
+    async function api(path, options = {}) {
+      const headers = Object.assign({}, options.headers || {});
+      if (adminToken) headers["Authorization"] = `Bearer ${adminToken}`;
+      const response = await fetch(path, Object.assign({}, options, { headers }));
+      let body;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+      if (response.status === 401) {
+        adminToken = null;
+        showLogin();
+        throw new Error("session expired -- log in again");
+      }
+      if (!response.ok || (body && body.success === false)) {
+        throw new Error((body && body.error) || `request to ${path} failed (${response.status})`);
+      }
+      return body ? body.data : null;
+    }
+
+    function showLogin() {
+      document.getElementById("screen-login").hidden = false;
+      document.getElementById("screen-list").hidden = true;
+    }
+
+    document.getElementById("login-btn").addEventListener("click", login);
+    document.getElementById("password").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") login();
+    });
+
+    async function login() {
+      clearError();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      if (!email || !password) return;
+      const btn = document.getElementById("login-btn");
+      btn.disabled = true;
+      try {
+        const data = await api("/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        adminToken = data.access_token;
+        document.getElementById("screen-login").hidden = true;
+        document.getElementById("screen-list").hidden = false;
+        await loadSessions();
+      } catch (err) {
+        showError("Login failed -- check the email and password.");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById("logout-btn").addEventListener("click", () => {
+      adminToken = null;
+      showLogin();
+    });
+
+    document.getElementById("back-to-list").addEventListener("click", () => {
+      document.getElementById("detail-card").hidden = true;
+      document.getElementById("list-card").hidden = false;
+      document.getElementById("back-to-list").hidden = true;
+    });
+
+    function field(row, ...names) {
+      for (const name of names) {
+        if (row[name] !== undefined && row[name] !== null) return row[name];
+      }
+      return null;
+    }
+
+    async function loadSessions() {
+      clearError();
+      let rows;
+      try {
+        rows = (await api("/admin/sessions")) || [];
+      } catch (err) {
+        showError(`Couldn't load sessions: ${err.message}`);
+        return;
+      }
+      const body = document.getElementById("sessions-body");
+      body.innerHTML = "";
+      document.getElementById("list-empty").hidden = rows.length > 0;
+      for (const row of rows) {
+        const id = field(row, "id", "session_id");
+        const tr = document.createElement("tr");
+        tr.dataset.id = id;
+        const score = field(row, "overall_score");
+        tr.innerHTML = `
+          <td>${escapeHtml(field(row, "candidate_name") ?? "(no name)")}</td>
+          <td>${escapeHtml(field(row, "area", "area_name") ?? "")}</td>
+          <td>${escapeHtml(field(row, "persona_version") ?? "")}</td>
+          <td>${escapeHtml(field(row, "phase") ?? "")}</td>
+          <td>${score != null ? Number(score).toFixed(2) : "–"}</td>
+          <td>${escapeHtml(field(row, "date", "started_at") ?? "")}</td>
+        `;
+        tr.addEventListener("click", () => openSession(id));
+        body.appendChild(tr);
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    async function openSession(id) {
+      clearError();
+      let data;
+      try {
+        data = await api(`/admin/sessions/${id}`);
+      } catch (err) {
+        showError(`Couldn't load that session: ${err.message}`);
+        return;
+      }
+      document.getElementById("list-card").hidden = true;
+      document.getElementById("detail-card").hidden = false;
+      document.getElementById("back-to-list").hidden = false;
+      document.getElementById("detail-title").textContent =
+        field(data, "candidate_name") ?? "(no name)";
+
+      const transcript = document.getElementById("transcript");
+      transcript.innerHTML = "";
+      for (const turn of data.turns || []) {
+        const p = document.createElement("p");
+        p.textContent = `[${turn.kind}] ${turn.transcript ?? ""}`;
+        transcript.appendChild(p);
+        if (turn.audio_artifact_id) {
+          const audio = document.createElement("audio");
+          audio.controls = true;
+          audio.src = `/session/artifacts/${turn.audio_artifact_id}`;
+          transcript.appendChild(audio);
+        }
+      }
+
+      const reportBox = document.getElementById("report");
+      reportBox.innerHTML = "";
+      const report = data.report;
+      if (!report) {
+        reportBox.innerHTML = '<p class="muted">No report yet.</p>';
+        return;
+      }
+      const overall = document.createElement("p");
+      overall.innerHTML = `<strong>Overall: ${Number(report.overall_score).toFixed(2)}</strong>`;
+      reportBox.appendChild(overall);
+      if (report.summary) {
+        const summary = document.createElement("p");
+        summary.className = "muted";
+        summary.textContent = report.summary;
+        reportBox.appendChild(summary);
+      }
+      for (const score of report.scores || []) {
+        const row = document.createElement("div");
+        row.className = "score-row";
+        const notAnswered = score.verdict === "not_answered";
+        row.innerHTML = `
+          <span>${escapeHtml(score.question_ref)}</span>
+          <span class="verdict ${notAnswered ? "not-answered" : ""}">${escapeHtml(score.verdict)}</span>
+          <span>${Number(score.score).toFixed(2)}</span>
+        `;
+        reportBox.appendChild(row);
+        const rationale = document.createElement("p");
+        rationale.className = "muted";
+        rationale.textContent = score.rationale || "";
+        reportBox.appendChild(rationale);
+      }
+    }
   </script>
 </body>
 </html>
