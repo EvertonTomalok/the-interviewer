@@ -27,6 +27,7 @@ class LLMCreds(BaseModel):
 
 class SpeechCreds(BaseModel):
     openai_compat: ProviderCreds = ProviderCreds()
+    openrouter: ProviderCreds = ProviderCreds()
 
 
 class LocalFsCreds(BaseModel):
