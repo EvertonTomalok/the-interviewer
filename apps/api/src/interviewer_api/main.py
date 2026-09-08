@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from interviewer_adapters.persistence import SessionFactory
 from interviewer_api import deps
 from interviewer_api.envelope import envelope, register_error_handlers
-from interviewer_api.routers import admin, auth, session
+from interviewer_api.routers import admin, auth, jobs, session
 from interviewer_core.config import Settings
 
 #: `apps/web/*.html` -- static, no build step. Mounted last so it never
@@ -40,6 +40,7 @@ register_error_handlers(app)
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(session.router)
+app.include_router(jobs.router)
 
 
 @app.get("/healthz")
