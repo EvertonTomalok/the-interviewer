@@ -16,10 +16,10 @@ types:
 	uv run mypy
 
 test:
-	uv run pytest -q
+	uv run pytest -q -m "not integration"
 
 cov:
-	uv run pytest --cov --cov-fail-under=80
+	uv run pytest --cov --cov-fail-under=80 -m "not integration"
 
 itest:
 	uv run pytest -m integration
@@ -39,7 +39,7 @@ stack:
 	docker compose --profile app up -d --build
 
 migrate:
-	uv run --package interviewer-adapters alembic upgrade head
+	@set -a; [ -f .env ] && . ./.env; set +a; uv run --package interviewer-adapters alembic upgrade head
 
 seed:
 	uv run python scripts/seed.py

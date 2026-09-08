@@ -47,6 +47,8 @@ known-first-party = ["interviewer_core", "interviewer_adapters", "interviewer_ap
 [tool.mypy]
 python_version = "3.12"
 strict = true
+plugins = ["sqlalchemy.ext.mypy.plugin"]
+exclude = "persistence/migrations/versions/"
 explicit_package_bases = true
 mypy_path = "packages/core/src:packages/adapters/src:apps/api/src:apps/worker/src"
 files = ["packages/core/src", "packages/adapters/src", "apps/api/src", "apps/worker/src"]
@@ -77,6 +79,13 @@ source = [
     "apps/worker/src",
 ]
 relative_files = true
+# SQL repository adapters need a real Postgres; they are exercised by the
+# SQL half of the contract suite (`make itest`), not by the fast unit loop.
+# The in-memory twins implement the same ports and stay in coverage.
+omit = [
+    "*/persistence/repositories.py",
+    "*/persistence/migrations/*",
+]
 
 [tool.coverage.report]
 skip_empty = true

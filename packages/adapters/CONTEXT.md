@@ -8,9 +8,11 @@ its own subpackage and registers itself against `interviewer_core.registry`
 by importing this package.
 
 **Public surface** — importing `interviewer_adapters` registers every known
-provider as a side effect; callers otherwise reach adapters only through
-`interviewer_core.registry.require_spec(kind, name)`, never by importing an
-adapter module directly.
+provider as a side effect; callers otherwise reach provider adapters only
+through `interviewer_core.registry.require_spec(kind, name)`, never by
+importing an adapter module directly. Persistence is the one exception,
+reached by direct import (see `persistence/CONTEXT.md`) since repositories
+are wired once, in a composition root, not chosen by a runtime slug.
 
 **Depends on** — every port in `interviewer_core.ports`. Runtime
 dependencies live here, not in core: `sqlmodel`, `sqlalchemy[asyncio]`,
@@ -29,5 +31,5 @@ tested in the shared crash-after-*k* contract suite.
 
 **Traps** — this package's `__init__.py` is append-only; reordering an
 existing registration import can silently change which provider a duplicate
-name resolves to first. `packages/adapters` is empty until the adapter tasks
-land — this file is the scaffold, not the inventory.
+name resolves to first. Only `persistence/` is populated so far — LLM,
+speech, storage and workflow adapters land in later tasks.
