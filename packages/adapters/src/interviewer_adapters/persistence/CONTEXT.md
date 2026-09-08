@@ -32,6 +32,11 @@ directory. Unique constraints, each preventing a specific failure:
 - `UNIQUE (slug)` on `interview_invites` — two invites answering to the same
   public link.
 
+`SessionRepository.list_all()` (added after the port froze, additive) is
+the one N+1-friendly read in this package by design — newest-first, no join
+— because the admin listing it backs is small-scale in a PoC and nothing
+else needs the join it would otherwise justify.
+
 `InterviewInviteTable` has no plaintext-passkey column — there is nowhere to
 put one. `InviteRepository.claim` is a single conditional `UPDATE … WHERE
 used_count < max_sessions … RETURNING`, never a read followed by a write;
