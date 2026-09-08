@@ -131,7 +131,7 @@ flowchart LR
     jobs --> routers
     interview --> routers
     admin --> routers
-    routers -->|"start(\"turn\"|\"evaluation\")"| P4
+    routers -->|"start turn or evaluation"| P4
     worker --> pipeline --> P1 & P2 & P5
     routers --> P5
     P1 --> A1
