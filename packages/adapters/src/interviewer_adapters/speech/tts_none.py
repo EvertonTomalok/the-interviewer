@@ -3,7 +3,10 @@
 `REPLY_MODE=text` skips the `synthesize` workflow step entirely; this
 adapter exists so the port has a total implementation even when nothing
 should call it. It is not a "fake" -- it is never refused in prod, because
-the PoC's real, intended shape is text replies.
+the PoC's real, intended shape is text replies. It is also not silent: a
+call that reaches `synthesize()` anyway means the workflow step failed to
+skip, and a silently-playing empty clip is a bug that looks like a working
+feature. It raises instead, naming both variables a caller needs to fix.
 """
 
 from __future__ import annotations
@@ -11,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from interviewer_core.config import Settings
+from interviewer_core.errors import ConfigError
 from interviewer_core.ports.speech import AudioBlob, TextToSpeechPort
 from interviewer_core.registry import ProviderSpec, register
 
@@ -18,7 +22,12 @@ from interviewer_core.registry import ProviderSpec, register
 @dataclass
 class NoneTTS:
     async def synthesize(self, text: str, *, voice: str | None, format: str) -> AudioBlob:
-        return AudioBlob(content=b"", mime="audio/none")
+        raise ConfigError(
+            "TTS_PROVIDER=none has no synthesize() implementation; the "
+            "workflow's synthesize step should have skipped it. Set "
+            "REPLY_MODE=text to skip speech output, or set TTS_PROVIDER to "
+            "a real provider to enable it."
+        )
 
 
 def _build(settings: Settings) -> TextToSpeechPort:

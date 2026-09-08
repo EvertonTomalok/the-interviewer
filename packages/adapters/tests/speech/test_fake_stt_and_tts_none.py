@@ -22,10 +22,11 @@ def test_fake_stt_build_refuses_in_prod() -> None:
         build_stt(SimpleNamespace(app_env="prod"))
 
 
-async def test_none_tts_returns_empty_audio() -> None:
+async def test_none_tts_raises_naming_reply_mode_and_provider() -> None:
     tts = NoneTTS()
-    blob = await tts.synthesize("hello", voice=None, format="wav")
-    assert blob.content == b""
+    with pytest.raises(ConfigError, match="REPLY_MODE") as excinfo:
+        await tts.synthesize("hello", voice=None, format="wav")
+    assert "TTS_PROVIDER" in str(excinfo.value)
 
 
 def test_none_tts_build_allowed_in_prod() -> None:

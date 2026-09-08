@@ -19,6 +19,11 @@ and its tests. A caller reaches a provider through
 fake transcript would be worse than a missing key); `none` TTS is **never**
 refused in prod — it is a deliberate Null Object, not a dev shortcut, so a
 missing speech key degrades the reply to text instead of crashing the turn.
+`none.synthesize()` does not return silence if it is ever called — it raises
+`ConfigError` naming `TTS_PROVIDER` and `REPLY_MODE`, because a PoC that
+quietly plays an empty clip looks like a working feature instead of the bug
+it is (the `synthesize` workflow step should have skipped before reaching
+it).
 
 **Where to change what** — add a provider → one new module in this
 directory that builds an `SpeechToTextPort`/`TextToSpeechPort` and calls
@@ -26,7 +31,13 @@ directory that builds an `SpeechToTextPort`/`TextToSpeechPort` and calls
 to this package's `__init__.py` and to `interviewer_adapters/__init__.py`.
 Never add an `if/elif` on a provider slug anywhere.
 
-**Traps** — `none` and `fake` look interchangeable (both return
-placeholder-ish audio) but are not: `fake` stands in for a real STT under
-test/dev, `none` stands in for "no TTS at all" and stays legal in prod.
-Don't refuse `none` in prod by copying the `fake` pattern.
+**Traps** — `none` and `fake` look interchangeable (both stand in for a real
+provider) but are not: `fake` stands in for a real STT under test/dev and is
+refused in prod, `none` stands in for "no TTS at all" and stays legal in
+prod — don't refuse `none` in prod by copying the `fake` pattern. Mime comes
+from the boundary the API declares on upload, never from sniffing bytes.
+STT transcribes; it never translates — a `language` hint passes straight
+through to the provider. `openai_compat` STT (live) and TTS (built, switched
+off by default) are not yet in this branch — `fake` STT and `none` TTS are
+enough for the whole unit suite and a text-only demo; a real STT call is
+still needed before the PoC can run against actual audio.
