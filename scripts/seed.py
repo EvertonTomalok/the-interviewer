@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""`make seed` -- an admin user and three sample software-engineering
-jobs, each one published area + persona, ready for `GET /jobs` the moment
-the API is up.
+"""`make seed` -- an admin user, three sample software-engineering jobs
+(each one published area + persona, ready for `GET /jobs` the moment the
+API is up), and a handful of demo `Session`/`Turn`/`InterviewReport` rows so
+`/admin.html` shows a populated, realistic review queue on a fresh database
+instead of an empty table.
 
 The admin email/password come from `Settings` (`SEED_ADMIN_EMAIL` /
 `SEED_ADMIN_PASSWORD` in `.env`, per this package's own "no module reads
@@ -13,18 +15,37 @@ that already has a published persona, is left alone and reported, not
 re-created -- so a partially-seeded database from an earlier failed run
 just picks up where it left off. Re-running after only the *password*
 changed in `.env` does not update an already-seeded admin's password --
-delete that user first if you need to rotate it.
+delete that user first if you need to rotate it. The demo sessions use
+fixed ids (`demo-session-*`) for the same reason -- `sessions.get(id)`
+before `add()`, never a duplicate row.
+
+The demo sessions are written directly through the repositories, not
+through `TurnPipeline`/the workflow engine -- there is no LLM or STT call
+involved, so the transcripts and scores below are hand-authored, not
+generated. That is a deliberate shortcut for demo data, not a pattern to
+copy for anything that must behave like a real interview turn.
 """
 
 from __future__ import annotations
 
 import asyncio
 import sys
+from datetime import timedelta
 from typing import Any
 
 from interviewer_api import deps
 from interviewer_api.security import hash_secret
-from interviewer_core.domain.entities import Area, Persona, PersonaQuestion, User
+from interviewer_core.domain.entities import (
+    Area,
+    InterviewReport,
+    Persona,
+    PersonaQuestion,
+    QuestionCoverage,
+    QuestionScore,
+    Session,
+    Turn,
+    User,
+)
 
 # `follow_up_depth=2` on two-plus questions per job plus `policy="adaptive"`
 # is what makes the interview actually branch on what the candidate said --
@@ -355,6 +376,302 @@ _JOBS: list[dict[str, Any]] = [
     },
 ]
 
+# Same wording `evaluator._NOT_ANSWERED_RATIONALE` uses for a real report.
+_NOT_REACHED = "the interview ended before this question was reached"
+
+# Demo review-queue rows for `/admin.html`, written straight through the
+# repositories (see the module docstring for why). `answers` is ordered --
+# each entry is one question-and-answer round, in the order it was asked.
+# A `phase` short of "completed" has no `scores`: the report is the last
+# workflow step, and a session that never reached it has none, same as a
+# real one.
+_DEMO_SESSIONS: list[dict[str, Any]] = [
+    {
+        "id": "demo-session-backend-strong",
+        "slug": "backend-python",
+        "candidate_name": "Elena Fischer",
+        "phase": "completed",
+        "started_minutes_ago": 190,
+        "answers": [
+            (
+                "python-fundamentals",
+                "A generator yields one item at a time instead of building the "
+                "whole list in memory, so I reach for it whenever I'm streaming "
+                "through something large, like paginating rows out of a "
+                "database -- a list only when I need to index into it or "
+                "iterate it more than once.",
+                0.9,
+            ),
+            (
+                "concurrency",
+                "We had a report-generation endpoint blocking the whole event "
+                "loop on a slow third-party call. I moved it to asyncio with "
+                "an httpx.AsyncClient and a semaphore to cap concurrent "
+                "requests -- p95 latency on the rest of the API dropped back "
+                "to normal immediately.",
+                0.92,
+            ),
+            (
+                "debugging",
+                "A batch job was silently dropping rows. I added structured "
+                "logging around the write, found the log full of a caught-and-"
+                "ignored IntegrityError, traced it to a race on an upsert, and "
+                "fixed it with a proper ON CONFLICT clause instead of a "
+                "select-then-insert.",
+                0.88,
+            ),
+        ],
+        "scores": {
+            "python-fundamentals": (
+                "strong",
+                0.9,
+                "Correct, precise, and gives the streaming use case.",
+            ),
+            "concurrency": (
+                "strong",
+                0.92,
+                "Names the real bottleneck, the fix, and the measured result.",
+            ),
+            "debugging": (
+                "strong",
+                0.88,
+                "Concrete root cause and the actual fix, not just the symptom.",
+            ),
+            "testing": ("not_answered", 0.0, _NOT_REACHED),
+            "system-design": ("not_answered", 0.0, _NOT_REACHED),
+            "collaboration": ("not_answered", 0.0, _NOT_REACHED),
+        },
+        "summary": "Strong, specific answers on the three questions asked -- the "
+        "candidate ran out of interview time before the remaining three, "
+        "which count against the overall score as unanswered.",
+    },
+    {
+        "id": "demo-session-backend-in-progress",
+        "slug": "backend-python",
+        "candidate_name": "Marcus Webb",
+        "phase": "questioning",
+        "started_minutes_ago": 12,
+        "answers": [
+            (
+                "python-fundamentals",
+                "Lists hold everything at once, generators sort of stream it "
+                "I think? I'd probably use whichever one the tutorial I "
+                "followed used.",
+                0.35,
+            ),
+        ],
+        "pending_question_ref": "concurrency",
+        "scores": None,
+    },
+    {
+        "id": "demo-session-frontend-weak",
+        "slug": "frontend-react",
+        "candidate_name": "Priya Raman",
+        "phase": "completed",
+        "started_minutes_ago": 420,
+        "answers": [
+            (
+                "rerenders",
+                "Usually it's just React being slow, I'd wrap it in React.memo "
+                "and see if that helps.",
+                0.4,
+            ),
+            (
+                "state-management",
+                "I default to Redux for basically everything, it's what I know best.",
+                0.3,
+            ),
+        ],
+        "scores": {
+            "rerenders": (
+                "weak",
+                0.4,
+                "Names React.memo but not why a re-render happened -- no mention of "
+                "reference identity or props changing.",
+            ),
+            "state-management": (
+                "weak",
+                0.3,
+                "No decision criteria given -- defaults to one tool regardless of scope.",
+            ),
+            "typescript": ("not_answered", 0.0, _NOT_REACHED),
+            "accessibility": ("not_answered", 0.0, _NOT_REACHED),
+            "performance": ("not_answered", 0.0, _NOT_REACHED),
+            "collaboration": ("not_answered", 0.0, _NOT_REACHED),
+        },
+        "summary": "Both answers stay at the surface level -- no concrete example or "
+        "tradeoff reasoning on either question asked.",
+    },
+    {
+        "id": "demo-session-devops-abandoned",
+        "slug": "devops-sre",
+        "candidate_name": "Sam Okafor",
+        "phase": "abandoned",
+        "started_minutes_ago": 1440,
+        "answers": [],
+        "pending_question_ref": "incident",
+        "scores": None,
+    },
+]
+
+
+async def _seed_demo_session(record: dict[str, Any], personas_by_slug: dict[str, Persona]) -> None:
+    sessions = deps.get_session_repo()
+    turns = deps.get_turn_repo()
+    reports = deps.get_report_repo()
+    clock = deps.get_clock()
+
+    if await sessions.get(record["id"]) is not None:
+        print(f"seed: demo session {record['id']!r} already exists, skipping")
+        return
+
+    persona = personas_by_slug[record["slug"]]
+    started_at = clock.now() - timedelta(minutes=record["started_minutes_ago"])
+
+    coverage = {
+        ref: QuestionCoverage(asked=True, answered=True, confidence=confidence)
+        for ref, _answer, confidence in record["answers"]
+    }
+    if record.get("pending_question_ref") is not None:
+        coverage[record["pending_question_ref"]] = QuestionCoverage(
+            asked=True, answered=False, confidence=0.0
+        )
+
+    session = Session(
+        id=record["id"],
+        invite_id=f"{record['id']}-invite",
+        persona_id=persona.id,
+        phase=record["phase"],
+        candidate_name=record["candidate_name"],
+        name_confidence=0.95 if record["candidate_name"] else None,
+        coverage=coverage,
+        started_at=started_at,
+        ended_at=(
+            started_at + timedelta(minutes=18)
+            if record["phase"] in ("completed", "abandoned", "failed")
+            else None
+        ),
+    )
+    await sessions.add(session)
+
+    # `asks[i]` is the question the interviewer poses right after
+    # `answers[i-1]` comes in (`asks[0]` is asked in the same round the
+    # candidate gives their name -- the greeting/intake prompt itself is
+    # shown before any Turn exists, per POST /i/{slug}/claim's response,
+    # never stored as a row). One more entry in `asks` than in `answers`
+    # means the session stopped mid-round: that last ask has no reply yet,
+    # exactly the "pending" row `build_history()` looks for on a live run.
+    by_ref = {q.ref: q for q in persona.questions}
+    answers = record["answers"]
+    asks = [ref for ref, _answer, _confidence in answers]
+    pending = record.get("pending_question_ref")
+    if pending is not None:
+        asks.append(pending)
+
+    turn_index = 0
+
+    if asks or record["candidate_name"]:
+        await turns.add(
+            Turn(
+                id=f"{record['id']}-t{turn_index}",
+                session_id=session.id,
+                index=turn_index,
+                kind="intake",
+                question_ref=None,
+                transcript=f"Hi, I'm {record['candidate_name']}.",
+                audio_artifact_id=None,
+                usage={},
+                created_at=started_at,
+            )
+        )
+        turn_index += 1
+        if asks:
+            await turns.add(
+                Turn(
+                    id=f"{record['id']}-t{turn_index}",
+                    session_id=session.id,
+                    index=turn_index,
+                    kind="intake",
+                    question_ref=asks[0],
+                    transcript=by_ref[asks[0]].text,
+                    audio_artifact_id=None,
+                    usage={},
+                    created_at=started_at + timedelta(minutes=turn_index),
+                )
+            )
+            turn_index += 1
+
+    for i, (ref, answer_text, _confidence) in enumerate(answers):
+        await turns.add(
+            Turn(
+                id=f"{record['id']}-t{turn_index}",
+                session_id=session.id,
+                index=turn_index,
+                kind="question",
+                question_ref=ref,
+                transcript=answer_text,
+                audio_artifact_id=None,
+                usage={},
+                created_at=started_at + timedelta(minutes=turn_index),
+            )
+        )
+        turn_index += 1
+        if i + 1 < len(asks):
+            await turns.add(
+                Turn(
+                    id=f"{record['id']}-t{turn_index}",
+                    session_id=session.id,
+                    index=turn_index,
+                    kind="question",
+                    question_ref=asks[i + 1],
+                    transcript=by_ref[asks[i + 1]].text,
+                    audio_artifact_id=None,
+                    usage={},
+                    created_at=started_at + timedelta(minutes=turn_index),
+                )
+            )
+            turn_index += 1
+
+    if pending is None and record["phase"] == "completed" and asks:
+        await turns.add(
+            Turn(
+                id=f"{record['id']}-t{turn_index}",
+                session_id=session.id,
+                index=turn_index,
+                kind="closing",
+                question_ref=None,
+                transcript=persona.farewell_text,
+                audio_artifact_id=None,
+                usage={},
+                created_at=started_at + timedelta(minutes=turn_index),
+            )
+        )
+        turn_index += 1
+
+    if record["scores"] is not None:
+        scores = tuple(
+            QuestionScore(question_ref=ref, score=score, verdict=verdict, rationale=rationale)
+            for ref, (verdict, score, rationale) in record["scores"].items()
+        )
+        weights = {q.ref: q.weight for q in persona.questions}
+        overall = sum(s.score * weights[s.question_ref] for s in scores) / sum(weights.values())
+        await reports.add(
+            InterviewReport(
+                id=f"{record['id']}-report",
+                session_id=session.id,
+                persona_id=persona.id,
+                scores=scores,
+                overall_score=round(overall, 2),
+                summary=record["summary"],
+                created_at=session.ended_at or started_at,
+            )
+        )
+
+    print(
+        f"seed: demo session {record['id']!r} "
+        f"({record['candidate_name']}, {record['phase']}) created"
+    )
+
 
 async def _seed_admin() -> None:
     users = deps.get_user_repo()
@@ -437,6 +754,19 @@ async def _main() -> None:
     await _seed_admin()
     for job in _JOBS:
         await _seed_job(job)
+
+    areas = deps.get_area_repo()
+    personas = deps.get_persona_repo()
+    existing_areas = {a.slug: a for a in await areas.list()}
+    personas_by_slug: dict[str, Persona] = {}
+    for job in _JOBS:
+        area = existing_areas.get(job["slug"])
+        persona = await personas.latest_published(area.id) if area else None
+        if persona is not None:
+            personas_by_slug[job["slug"]] = persona
+    for record in _DEMO_SESSIONS:
+        await _seed_demo_session(record, personas_by_slug)
+
     print("seed: done -- GET /jobs now lists every job seeded above")
 
 
