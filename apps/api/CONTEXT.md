@@ -18,10 +18,15 @@ own `deps.py` from `interviewer_core.config` settings and
 
 **Invariants** — `POST /session/turns` stores the upload and enqueues a run;
 it never transcribes, composes or scores inside the request. Every route
-except `/auth/*`, `/i/{slug}/claim`, `/healthz` and `/readyz` requires a
-valid bearer token, checked by one dependency (`deps.require_admin` /
-`deps.require_candidate_session`), never by convention per-route. No
-candidate-token route ever serialises `score`, `verdict` or `rationale`.
+except `/auth/*`, `/i/{slug}/claim`, `/jobs`, `/jobs/{area_id}/start`,
+`/healthz` and `/readyz` requires a valid bearer token, checked by one
+dependency (`deps.require_admin` / `deps.require_candidate_session`), never
+by convention per-route. No candidate-token route ever serialises `score`,
+`verdict` or `rationale`. `POST /jobs/{area_id}/start` is a second,
+no-credential entry point into the same session/token world `POST
+/i/{slug}/claim` creates — it mints and self-claims a single-use, one-hour
+`InterviewInvite` server-side (`routers/jobs.py`) rather than reusing
+`claim()`'s code, so it never touches `session.py`.
 
 **Where to change what** — a new route → a router module under `routers/`
 plus a line in `main.py`'s `include_router` calls; a new port/repository the
