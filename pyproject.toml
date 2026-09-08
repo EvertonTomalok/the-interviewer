@@ -41,6 +41,11 @@ src = [
 select = ["E", "F", "I", "UP", "B", "C4", "SIM"]
 ignore = []
 
+[tool.ruff.lint.per-file-ignores]
+# FastAPI's `Depends(...)` in an argument default is the framework's own
+# idiom, not the mutable-default footgun B008 exists to catch (T09).
+"apps/api/src/interviewer_api/**" = ["B008"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["interviewer_core", "interviewer_adapters", "interviewer_api", "interviewer_worker"]
 
