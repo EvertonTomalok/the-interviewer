@@ -13,6 +13,21 @@ the coverage rules and the expected answer for each question; finishing the
 interview scores the transcript against those expected answers. The
 candidate never sees a score; the admin reads the transcript and the report.
 
+### 1.b Where things live, once it's running
+
+| URL | What's there |
+|---|---|
+| `/docs` | Swagger UI — every route, live, generated from the FastAPI app |
+| `/openapi.json` | the raw OpenAPI schema `/docs` and `apps/web` are built against |
+| `/jobs.html` | the public landing page — no credential, lists every published job (`GET /jobs`), one click starts an interview |
+| `/i/{slug}` | an admin-issued invite link — passkey screen, then the same candidate flow `/jobs.html` starts |
+| `/admin.html` | reviewer login, session list, transcript + report per session |
+| `/healthz`, `/readyz` | liveness / dependency check (Postgres, workflow engine) |
+
+`/jobs.html`, `/i/{slug}` and `/admin.html` are `apps/web`'s three static
+pages, served by the same API process (`StaticFiles`, mounted after every
+API route so it never shadows one) — no separate frontend server.
+
 ## 2. Run it
 
 ```bash
