@@ -80,7 +80,10 @@ class PersonaRequest(BaseModel):
     questions: list[QuestionRequest]
     policy: str = "guided"
     min_coverage: float = 0.7
-    max_questions: int = 8
+    #: `None` means "ask every question once" -- the budget counts distinct
+    #: questions asked (ADR 0004), so a value above `len(questions)` can
+    #: never fire and would leave the session looping to SESSION_MAX_TURNS.
+    max_questions: int | None = None
     rubric: str
 
 
@@ -95,6 +98,15 @@ async def publish_persona(
 ) -> dict[str, object]:
     if await areas.get(area_id) is None:
         raise not_found(f"no area {area_id!r}")
+
+    max_questions = body.max_questions if body.max_questions is not None else len(body.questions)
+    if max_questions > len(body.questions):
+        raise ApiError(
+            422,
+            "max_questions_unreachable",
+            f"a persona with {len(body.questions)} question(s) can never reach a "
+            f"max_questions budget of {max_questions}; the interview would not terminate",
+        )
 
     persona = Persona(
         id=ids.new_id(),
@@ -115,7 +127,7 @@ async def publish_persona(
         questions=tuple(PersonaQuestion(**q.model_dump()) for q in body.questions),
         policy=body.policy,  # type: ignore[arg-type]
         min_coverage=body.min_coverage,
-        max_questions=body.max_questions,
+        max_questions=max_questions,
         rubric=body.rubric,
         created_at=clock.now(),
     )

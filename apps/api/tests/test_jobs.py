@@ -49,7 +49,6 @@ async def _publish(
         ],
         "policy": "adaptive",
         "min_coverage": 0.6,
-        "max_questions": 6,
         "rubric": "score 0-1 per question",
     }
     await client.post(f"/areas/{area_id}/personas", json=persona_body, headers=headers)

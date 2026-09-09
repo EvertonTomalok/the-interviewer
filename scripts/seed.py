@@ -47,11 +47,16 @@ from interviewer_core.domain.entities import (
     User,
 )
 
-# `follow_up_depth=2` on two-plus questions per job plus `policy="adaptive"`
-# is what makes the interview actually branch on what the candidate said --
-# `AdaptivePolicy` (packages/core/.../engine/policies.py) re-asks a
-# thin-coverage question up to its own `follow_up_depth` times before
-# moving on, so these aren't just descriptive numbers.
+# `follow_up_depth` plus `policy="adaptive"` is what lets the interview
+# branch on what the candidate said -- `AdaptivePolicy`
+# (packages/core/.../engine/policies.py) can re-ask a thin-coverage
+# question up to its own `follow_up_depth` times. With the budget below
+# (`max_questions == len(questions)`), a re-ask only happens while some
+# question is still unasked (a flat-0.0 answer ranks weakest and ties
+# ahead of later fresh questions); once every question has been asked
+# once, the session ends on the `max_questions` reason -- the budget
+# counts *distinct* questions asked (ADR 0004), which is also why it can
+# never exceed `len(questions)`.
 _JOBS: list[dict[str, Any]] = [
     {
         "slug": "backend-python",
@@ -741,7 +746,11 @@ async def _seed_job(job: dict[str, Any]) -> None:
         questions=tuple(PersonaQuestion(**q) for q in job["questions"]),
         policy="adaptive",
         min_coverage=0.5,
-        max_questions=8,
+        # `len(job["questions"])`, never a fixed literal: the budget counts
+        # distinct questions asked (ADR 0004), so anything above the
+        # question count can never fire and the interview would loop until
+        # SESSION_MAX_TURNS cut it off.
+        max_questions=len(job["questions"]),
         rubric=job["rubric"],
         created_at=clock.now(),
     )

@@ -66,4 +66,8 @@ session-token-scoped, so it can serve any session's recording, not just the
 caller's own. `DELETE /invites/{id}` calls the port's `delete()`, which is
 a hard remove, not a `status="retired"` update — every externally
 observable behaviour (claim fails the same way, existing sessions
-untouched) is identical either way.
+untouched) is identical either way. `POST /areas/{id}/personas` derives an
+omitted `max_questions` from `len(questions)` and rejects a larger value
+with 422 `max_questions_unreachable` — the budget counts *distinct*
+questions asked (ADR 0004), so a budget above the question count can never
+fire and the interview would loop until `SESSION_MAX_TURNS` cut it off.
